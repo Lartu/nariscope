@@ -249,7 +249,8 @@ public enum Renderer {
         return result.joined(separator: "\n")
     }
 
-    public static func document(_ input: String, original: Bool = false, links: Bool = false) -> String {
+    public static func document(_ input: String, original: Bool = false, links: Bool = false,
+                                showRules: Bool = true) -> String {
         let text = input.replacingOccurrences(of: "\r\n", with: "\n").replacingOccurrences(of: "\r", with: "\n")
         if original || has(wholeSource, text) { return pre(text) }
         let rows = text.components(separatedBy: "\n").map(Row.init)
@@ -283,7 +284,7 @@ public enum Renderer {
             } else if row.bare.isEmpty {
                 i += 1
             } else if has(rule, row.bare) {
-                sections.append("<hr>")
+                if showRules { sections.append("<hr>") }
                 i += 1
             } else {
                 var end = i + 1

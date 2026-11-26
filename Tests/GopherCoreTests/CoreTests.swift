@@ -57,6 +57,16 @@ final class CoreTests: XCTestCase {
                        "@media (width < 600px) { p::after { content: \"\\3C /style>\" } }")
     }
 
+    func testMenuSuppressesStandaloneRulesWhileKeepingOriginalAndArtwork() {
+        let art = "+------+\n| ART! |\n+------+"
+        let source = "Welcome to this menu.\n\n-----\n\n" + art
+        let menu = Renderer.document(source, showRules: false)
+        XCTAssertFalse(menu.contains("<hr>"))
+        XCTAssertTrue(menu.contains(Renderer.pre(art)))
+        XCTAssertTrue(Renderer.document(source).contains("<hr>"))
+        XCTAssertEqual(Renderer.document(source, original: true, showRules: false), Renderer.pre(source))
+    }
+
     func testPythonCorpusParity() throws {
         guard let path = ProcessInfo.processInfo.environment["GOPHER_PARITY_FIXTURE"] else {
             throw XCTSkip("Set GOPHER_PARITY_FIXTURE to a JSON array of text and expected HTML.")

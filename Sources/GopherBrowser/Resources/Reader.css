@@ -74,12 +74,12 @@ hr {
 /* Gopher menu entries and image previews */
 .entry {
   display: grid;
-  grid-template-columns: 4rem minmax(0, 1fr);
+  grid-template-columns: 1.4rem minmax(0, 1fr);
   align-items: baseline;
-  gap: .7rem;
-  padding: .55rem 0;
-  border-top: 1px solid var(--line);
+  gap: .5rem;
+  padding: .3rem 0;
 }
 
-.entry span { font-size: .78rem; }
+.entry .entry-icon { font-size: 1rem; text-align: center; }
+.entry + .info > p:first-child { margin: 0 0 .65rem; padding-inline-start: 1.9rem; }
 img { display: block; max-width: 100%; height: auto; }

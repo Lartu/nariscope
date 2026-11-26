@@ -362,7 +362,9 @@ private enum ReaderPage {
         var info: [String] = []
         func flushInfo() {
             if !info.isEmpty {
-                content += "<section class=\"info\">\(Renderer.document(info.joined(separator: "\n"), original: original, links: true))</section>"
+                let description = Renderer.document(info.joined(separator: "\n"), original: original,
+                                                    links: true, showRules: false)
+                if !description.isEmpty { content += "<section class=\"info\">\(description)</section>" }
                 info.removeAll(keepingCapacity: true)
             }
         }
@@ -371,16 +373,19 @@ private enum ReaderPage {
             flushInfo()
             let label = Renderer.escape(entry.label)
             if let destination = entry.address?.string ?? entry.webURL?.absoluteString {
-                let kind: String
+                let (icon, kind): (String, String)
                 switch entry.type {
-                case 49: kind = "Folder"
-                case 48: kind = "Text"
-                case 55: kind = "Search"
-                case 104: kind = "Web"
-                case 103, 73, 112, 58: kind = "Image"
-                default: kind = "File"
+                case 49: (icon, kind) = ("📁", "Folder")
+                case 48: (icon, kind) = ("📄", "Text document")
+                case 55: (icon, kind) = ("🔍", "Search")
+                case 104: (icon, kind) = ("🌐", "Web")
+                case 103, 73, 112, 58: (icon, kind) = ("🖼️", "Image")
+                default: (icon, kind) = ("📦", "File")
                 }
-                content += "<div class=\"entry\"><span>\(kind)</span><a href=\"\(Renderer.escape(destination))\">\(label)</a></div>"
+                content += """
+                <div class="entry"><span class="entry-icon" role="img" aria-label="\(kind)">\(icon)</span>\
+                <a href="\(Renderer.escape(destination))">\(label)</a></div>
+                """
             } else {
                 content += "<p>\(label)</p>"
             }
