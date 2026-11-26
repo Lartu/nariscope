@@ -24,7 +24,7 @@ when you first open the editor.
 
 External CSS imports and remote fonts are blocked.
 
-## Build
+## Build and test
 
 Requires macOS 13 or later and a Swift 5.9 or newer toolchain. There are no
 third-party dependencies.
@@ -35,9 +35,9 @@ swift run GopherBrowser
 bash build-app.sh
 ```
 
-`build-app.sh` produces a locally signed `Gopher Browser.app` for the build
-machine's architecture. Pass an output directory and a Swift build directory
-as positional arguments to keep artifacts outside the source tree.
+`build-app.sh` puts a locally signed `Gopher Browser.app` in `outputs/` for
+the build machine's architecture. It accepts optional output and Swift build
+directories as positional arguments.
 
 To start at a particular address, pass a Gopher URL to the executable.
 
@@ -45,11 +45,36 @@ To start at a particular address, pass a Gopher URL to the executable.
 swift run GopherBrowser gopher://gopher.floodgap.com/1
 ```
 
-The core tests cover URL and selector bytes, menu parsing, rendering, and
-escaping. Set `GOPHER_TEST_URL` to a Gopher server whose root includes a text
-link to run the network integration test. Set `GOPHER_PARITY_FIXTURE` to a JSON
-file of objects with `name`, `source`, and `expected` fields to check a corpus
-against reference HTML.
+The Swift tests cover URLs, selector bytes, menu parsing, and rendering. To
+exercise a real TCP connection, start the local fixture in one terminal and
+run the integration test in another.
+
+```sh
+# Terminal 1
+python3 Tests/Fixtures/gopher_fixture.py 7070
+
+# Terminal 2
+GOPHER_TEST_URL=gopher://127.0.0.1:7070/ GOPHER_TEST_SEARCH=1 swift test
+```
+
+## Python prototype
+
+[The prototype](prototype/README.md) contains the crawler, HTML exporter,
+evaluation tools, and the reference implementation for the Swift renderer.
+
+```sh
+python3 -m unittest discover -s prototype -v
+```
+
+For a renderer comparison using a downloaded corpus, generate a parity fixture
+and pass its absolute path to Swift.
+
+```sh
+python3 prototype/make_parity_fixture.py work/corpus -o work/parity.json
+GOPHER_PARITY_FIXTURE="$PWD/work/parity.json" swift test
+```
+
+Downloaded pages, generated HTML, and app builds are kept outside Git.
 
 The client connects directly over plaintext Gopher TCP and limits responses
 to 16 MiB with a 20-second request timeout.
