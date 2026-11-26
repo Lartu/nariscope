@@ -1,4 +1,17 @@
+html { color: inherit; }
+head { color: inherit; }
+meta { color: inherit; }
+style { color: inherit; }
 body { background-color: #fcfaf4; color: #242d2a; }
+
+h1 { color: inherit; }
+h2 { color: inherit; }
+p { color: inherit; }
 a { color: #215d50; }
+ul { color: inherit; }
+li { color: inherit; }
+blockquote { color: inherit; }
 pre { background-color: #efeee5; }
 hr { border-color: #d8d9ce; }
+br { color: inherit; }
+img { color: inherit; }
