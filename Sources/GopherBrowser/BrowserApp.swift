@@ -358,7 +358,7 @@ private enum ReaderPage {
     }
 
     static func menu(_ entries: [MenuItem], address: Address, original: Bool = false) -> String {
-        var content = "<h1>\(title(address))</h1>"
+        var content = ""
         var info: [String] = []
         func flushInfo() {
             if !info.isEmpty {
@@ -387,12 +387,12 @@ private enum ReaderPage {
                 <a href="\(Renderer.escape(destination))">\(label)</a></div>
                 """
             } else {
-                content += "<p>\(label)</p>"
+                content += "<p class=\"menu-notice\">\(label)</p>"
             }
         }
         flushInfo()
-        if entries.isEmpty { content += "<p>This menu is empty.</p>" }
-        return content
+        if entries.isEmpty { content += "<p class=\"menu-notice\">This menu is empty.</p>" }
+        return "<h1>\(title(address))</h1><div class=\"gopher-menu\">\(content)</div>"
     }
 
     static func wrap(_ body: String, css: String) -> String {

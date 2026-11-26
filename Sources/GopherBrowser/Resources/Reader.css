@@ -72,14 +72,24 @@ hr {
 }
 
 /* Gopher menu entries and image previews */
+.gopher-menu {
+  --menu-icon-width: 1.4rem;
+  --menu-icon-gap: .5rem;
+}
+
 .entry {
   display: grid;
-  grid-template-columns: 1.4rem minmax(0, 1fr);
+  grid-template-columns: var(--menu-icon-width) minmax(0, 1fr);
   align-items: baseline;
-  gap: .5rem;
+  column-gap: var(--menu-icon-gap);
   padding: .3rem 0;
 }
 
 .entry .entry-icon { font-size: 1rem; text-align: center; }
-.entry + .info > p:first-child { margin: 0 0 .65rem; padding-inline-start: 1.9rem; }
+.gopher-menu > .info,
+.gopher-menu > .menu-notice {
+  margin-inline-start: calc(var(--menu-icon-width) + var(--menu-icon-gap));
+}
+
+.entry + .info > p:first-child { margin-block: 0 .65rem; }
 img { display: block; max-width: 100%; height: auto; }
