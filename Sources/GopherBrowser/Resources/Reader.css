@@ -1,17 +1,66 @@
-html { color: inherit; }
-head { color: inherit; }
-meta { color: inherit; }
-style { color: inherit; }
-body { background-color: #fcfaf4; color: #242d2a; }
+html {
+    background-color: white;
+}
 
-h1 { color: inherit; }
-h2 { color: inherit; }
-p { color: inherit; }
-a { color: #215d50; }
-ul { color: inherit; }
-li { color: inherit; }
-blockquote { color: inherit; }
-pre { background-color: #efeee5; }
-hr { border-color: #d8d9ce; }
-br { color: inherit; }
-img { color: inherit; }
+body {
+    color: #131313;
+    font-family: 'Lucida Sans', 'Lucida Sans Regular', 'Lucida Grande', 'Lucida Sans Unicode', Geneva, Verdana, sans-serif;
+    line-height: 150%;
+    max-width: 800px;
+    padding-top: 4em;
+    padding-bottom: 4em;
+    padding-left: 2em;
+    padding-right: 2em;
+    box-sizing: border-box;
+    margin: auto;
+}
+
+h1 {
+    font-weight: bold;
+    font-size: 30pt;
+    margin-bottom: 1em;
+    color: tomato;
+}
+
+h2 {
+    color: inherit;
+}
+
+p {
+    color: inherit;
+}
+
+a {
+    color: lightcoral;
+    text-decoration: none;
+    font-weight: bold;
+    display: block;
+}
+
+ul {
+    color: inherit;
+}
+
+li {
+    color: inherit;
+}
+
+blockquote {
+    color: inherit;
+}
+
+pre {
+    background-color: #efeee5;
+}
+
+hr {
+    border-color: #d8d9ce;
+}
+
+br {
+    color: inherit;
+}
+
+img {
+    color: inherit;
+}

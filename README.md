@@ -22,9 +22,7 @@ Original Layout. Choose **Restore Defaults** and **Apply** to restore the
 built-in theme. Existing overrides from version 1.1 appear after the defaults
 when you first open the editor.
 
-The default stylesheet sets only page, text, link, preformatted-block, and
-separator colors. WebKit supplies the rest of the presentation. External CSS
-imports and remote fonts are blocked.
+External CSS imports and remote fonts are blocked.
 
 ## Build
 
