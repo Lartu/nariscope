@@ -1,0 +1,85 @@
+/* Colors. The dark palette follows the macOS appearance setting. */
+:root {
+  color-scheme: light dark;
+  --paper: #fcfaf4;
+  --ink: #242d2a;
+  --line: #d8d9ce;
+  --accent: #215d50;
+  --panel: #efeee5;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #181e1d;
+    --ink: #ebede3;
+    --line: #495451;
+    --accent: #9cdbca;
+    --panel: #222b29;
+  }
+}
+
+/* Page width and typography */
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font: 17px/1.6 system-ui, sans-serif;
+}
+
+main {
+  max-width: 54rem;
+  margin: auto;
+  padding: 2rem clamp(1rem, 5vw, 3rem) 4rem;
+}
+
+h1 {
+  margin: 0 0 1.1rem;
+  font: bold clamp(2rem, 5vw, 3rem)/1.1 Georgia, serif;
+}
+
+h2 { font-size: 1.3rem; }
+h1, h2, p, li, a { overflow-wrap: anywhere; }
+
+a {
+  color: var(--accent);
+  text-underline-offset: .18em;
+}
+
+article, .info { font: 1.17rem/1.65 Georgia, serif; }
+
+blockquote {
+  border-left: 3px solid var(--line);
+  margin: 1em 0;
+  padding-left: 1em;
+}
+
+/* ASCII art, tables, code, and Original Layout */
+pre {
+  overflow: auto;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: .4rem;
+  padding: .9rem;
+  font: .88rem/1.35 ui-monospace, monospace;
+  tab-size: 8;
+}
+
+hr {
+  border: none;
+  border-top: 1px solid var(--line);
+}
+
+/* Gopher menu entries and image previews */
+.entry {
+  display: grid;
+  grid-template-columns: 4rem minmax(0, 1fr);
+  align-items: baseline;
+  gap: .7rem;
+  padding: .55rem 0;
+  border-top: 1px solid var(--line);
+}
+
+.entry span { font-size: .78rem; }
+img { display: block; max-width: 100%; height: auto; }
