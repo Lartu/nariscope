@@ -22,10 +22,10 @@ Original Layout. Choose **Restore Defaults** and **Apply** to restore the
 built-in theme. Existing overrides from version 1.1 appear after the defaults
 when you first open the editor.
 
-Suggested selectors include \`main\` for page width, \`article\` for prose, \`pre\`
-for fixed-width blocks, \`.info\` for menu descriptions, and \`.entry\` for menu
-links. The built-in color variables are \`--paper\`, \`--ink\`, \`--line\`,
-\`--accent\`, and \`--panel\`. External CSS imports and remote fonts are blocked.
+Use `body` for page width, `p` for paragraphs, `pre` for fixed-width blocks,
+and `.entry` for menu links. The built-in color variables are `--paper`,
+`--ink`, `--line`, `--accent`, and `--panel`. External CSS imports
+and remote fonts are blocked.
 
 ## Build
 

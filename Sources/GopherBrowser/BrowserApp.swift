@@ -272,8 +272,8 @@ private final class Browser: ObservableObject {
                     }.value
                     try Task.checkCancellation()
                     let title = "<h1>\(ReaderPage.title(address))</h1>"
-                    rendered = title + "<article>\(result.1)</article>"
-                    originalRendered = title + "<article>\(Renderer.pre(result.0))</article>"
+                    rendered = title + result.1
+                    originalRendered = title + Renderer.pre(result.0)
                     canToggleOriginal = true
                     updateReader()
                 default:
@@ -358,15 +358,13 @@ private enum ReaderPage {
     }
 
     static func menu(_ entries: [MenuItem], address: Address, original: Bool = false) -> String {
-        var content = ""
+        var content = "<h1>\(title(address))</h1>"
         var info: [String] = []
         func flushInfo() {
-            if !info.isEmpty {
-                let description = Renderer.document(info.joined(separator: "\n"), original: original,
-                                                    links: true, showRules: false)
-                if !description.isEmpty { content += "<section class=\"info\">\(description)</section>" }
-                info.removeAll(keepingCapacity: true)
-            }
+            guard !info.isEmpty else { return }
+            content += Renderer.document(info.joined(separator: "\n"), original: original,
+                                         links: true, showRules: false)
+            info.removeAll(keepingCapacity: true)
         }
         for entry in entries {
             if entry.type == 105 { info.append(entry.label); continue }
@@ -383,16 +381,16 @@ private enum ReaderPage {
                 default: (icon, kind) = ("📦", "File")
                 }
                 content += """
-                <div class="entry"><span class="entry-icon" role="img" aria-label="\(kind)">\(icon)</span>&nbsp;\
-                <a href="\(Renderer.escape(destination))">\(label)</a></div>
+                <p class="entry"><a href="\(Renderer.escape(destination))" \
+                aria-label="\(label) (\(kind))">\(icon)&nbsp;\(label)</a></p>
                 """
             } else {
-                content += "<p class=\"menu-notice\">\(label)</p>"
+                content += "<p>\(label)</p>"
             }
         }
         flushInfo()
-        if entries.isEmpty { content += "<p class=\"menu-notice\">This menu is empty.</p>" }
-        return "<h1>\(title(address))</h1><div class=\"gopher-menu\">\(content)</div>"
+        if entries.isEmpty { content += "<p>This menu is empty.</p>" }
+        return content
     }
 
     static func wrap(_ body: String, css: String) -> String {
@@ -401,7 +399,7 @@ private enum ReaderPage {
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'">
         <style>\(Renderer.styleElementText(css))</style>
-        <main>\(body)</main></html>
+        <body>\(body)</body></html>
         """
     }
 }
