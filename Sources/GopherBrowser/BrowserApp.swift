@@ -383,7 +383,7 @@ private enum ReaderPage {
                 default: (icon, kind) = ("📦", "File")
                 }
                 content += """
-                <div class="entry"><span class="entry-icon" role="img" aria-label="\(kind)">\(icon)</span>\
+                <div class="entry"><span class="entry-icon" role="img" aria-label="\(kind)">\(icon)</span>&nbsp;\
                 <a href="\(Renderer.escape(destination))">\(label)</a></div>
                 """
             } else {
