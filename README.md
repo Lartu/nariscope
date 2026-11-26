@@ -7,7 +7,7 @@ and HTTPS links open in the default web browser.
 
 The HTML reading view uses the same decisions as the Python corpus renderer.
 It turns hard-wrapped prose into paragraphs and keeps drawings, columns, and
-code in scrollable preformatted blocks. **Original layout** shows the source
+code in preformatted blocks. **Original layout** shows the source
 spacing for text and menu descriptions. Menu links remain clickable in either
 view. The application generates its own HTML and displays remote text as text.
 
@@ -22,10 +22,9 @@ Original Layout. Choose **Restore Defaults** and **Apply** to restore the
 built-in theme. Existing overrides from version 1.1 appear after the defaults
 when you first open the editor.
 
-Use `body` for page width, `p` for paragraphs, `pre` for fixed-width blocks,
-and `.entry` for menu links. The built-in color variables are `--paper`,
-`--ink`, `--line`, `--accent`, and `--panel`. External CSS imports
-and remote fonts are blocked.
+The default stylesheet sets only page, text, link, preformatted-block, and
+separator colors. WebKit supplies the rest of the presentation. External CSS
+imports and remote fonts are blocked.
 
 ## Build
 
