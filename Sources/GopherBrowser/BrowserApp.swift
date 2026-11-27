@@ -6,6 +6,7 @@ import UniformTypeIdentifiers
 @main
 @MainActor
 struct GopherBrowserApp: App {
+    @NSApplicationDelegateAdaptor(BrowserAppDelegate.self) private var appDelegate
     @StateObject private var bookmarks = BookmarkStore()
 
     var body: some Scene {
@@ -16,7 +17,15 @@ struct GopherBrowserApp: App {
         .defaultSize(width: 960, height: 750)
         .commands { BrowserCommands(bookmarks: bookmarks) }
 
-        Settings { ReaderSettings() }
+        Settings {
+            TabView {
+                ReaderSettings()
+                    .tabItem { Label("Stylesheet", systemImage: "paintbrush") }
+                IconSettings()
+                    .tabItem { Label("App Icon", systemImage: "app") }
+            }
+            .frame(width: 600, height: 400)
+        }
     }
 }
 
@@ -56,7 +65,6 @@ private struct ReaderSettings: View {
             }
         }
         .padding(20)
-        .frame(width: 600, height: 370)
         .onAppear { draft = currentCSS }
     }
 

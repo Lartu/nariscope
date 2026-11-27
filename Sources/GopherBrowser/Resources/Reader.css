@@ -50,7 +50,10 @@ blockquote {
 }
 
 pre {
-    background-color: #efeee5;
+    background-color: #FAFAFA;
+    padding: 10px;
+    border-radius: 10px;
+    color: gray;
 }
 
 hr {

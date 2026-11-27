@@ -21,10 +21,10 @@ code in preformatted blocks. **Original layout** shows the source
 spacing for text and menu descriptions. Menu links remain clickable in either
 view. The application generates its own HTML and displays remote text as text.
 
-## Custom CSS
+## Settings
 
-Open **Gopher Browser → Settings** (⌘,) to edit the current stylesheet. On
-first launch it starts with the complete built-in theme from
+Open **Gopher Browser → Settings** (⌘,) and choose **Stylesheet** to edit
+the current CSS. On first launch it starts with the built-in theme from
 [Reader.css](Sources/GopherBrowser/Resources/Reader.css). Edit it in place or
 load a UTF-8 stylesheet to replace it. Click **Apply** to update every open
 reading pane. The setting persists between launches and applies to menus and
@@ -33,6 +33,10 @@ built-in theme. Existing overrides from version 1.1 appear after the defaults
 when you first open the editor.
 
 External CSS imports and remote fonts are blocked.
+
+In the packaged app, the **App Icon** pane offers **Sunny**, **Violet**, and
+**Blue**. The choice takes effect in the Dock and is restored on launch.
+Finder uses Sunny as the bundled icon.
 
 ## Build and test
 
