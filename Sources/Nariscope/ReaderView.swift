@@ -10,6 +10,7 @@ enum LinkDestination: Int {
 struct ReaderView: NSViewRepresentable {
     let pageContent: String
     let css: String
+    let pageZoom: CGFloat
     let find: FindRequest?
     let found: (FindRequest, Bool) -> Void
     let follow: (URL, LinkDestination) -> Void
@@ -71,6 +72,7 @@ struct ReaderView: NSViewRepresentable {
     }
 
     func updateNSView(_ view: WKWebView, context: Context) {
+        if view.pageZoom != pageZoom { view.pageZoom = pageZoom }
         let coordinator = context.coordinator
         coordinator.follow = follow
         coordinator.found = found

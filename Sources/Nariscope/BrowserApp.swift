@@ -50,6 +50,9 @@ private struct BrowserActions {
     let reopenTab: (TabSnapshot) -> Void
     let showFind: () -> Void
     let moveFind: ((Bool) -> Void)?
+    let zoomIn: (() -> Void)?
+    let zoomOut: (() -> Void)?
+    let resetZoom: (() -> Void)?
 }
 
 private struct BrowserActionsKey: FocusedValueKey {
@@ -100,6 +103,16 @@ private struct BrowserCommands: Commands {
                     .keyboardShortcut("g", modifiers: [.command, .shift])
                     .disabled(actions?.moveFind == nil)
             }
+            Divider()
+            Button("Zoom In") { actions?.zoomIn?() }
+                .keyboardShortcut("+", modifiers: .command)
+                .disabled(actions?.zoomIn == nil)
+            Button("Zoom Out") { actions?.zoomOut?() }
+                .keyboardShortcut("-", modifiers: .command)
+                .disabled(actions?.zoomOut == nil)
+            Button("Restore Default Zoom") { actions?.resetZoom?() }
+                .keyboardShortcut("0", modifiers: .command)
+                .disabled(actions?.resetZoom == nil)
         }
         CommandMenu("History") {
             Button("Show All History") { openWindow(id: "history") }
@@ -577,7 +590,10 @@ private struct BrowserToolbar: View {
             },
             reopenTab: reopenTab,
             showFind: showFind,
-            moveFind: moveFind
+            moveFind: moveFind,
+            zoomIn: browser.canZoomIn ? { browser.changeZoom(by: 1) } : nil,
+            zoomOut: browser.canZoomOut ? { browser.changeZoom(by: -1) } : nil,
+            resetZoom: browser.pageZoom != 1 ? { browser.resetZoom() } : nil
         )
     }
 }
@@ -607,12 +623,16 @@ private struct BrowserContent: View {
     let follow: (URL, LinkDestination) -> Void
 
     var body: some View {
-        ReaderView(pageContent: browser.content, css: css, find: find, found: found, follow: follow)
+        ReaderView(pageContent: browser.content, css: css, pageZoom: browser.pageZoom,
+                   find: find, found: found, follow: follow)
     }
 }
 
 @MainActor
 private final class Browser: ObservableObject, Identifiable {
+    private static let zoomLevels: [CGFloat] = [0.5, 0.67, 0.8, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2, 2.5, 3]
+    private static let defaultZoomIndex = zoomLevels.firstIndex(of: 1)!
+
     let id = UUID()
     @Published var addressField = ""
     @Published var searchQuery = ""
@@ -630,6 +650,7 @@ private final class Browser: ObservableObject, Identifiable {
     @Published private(set) var canToggleOriginal = false
     @Published private var history: [Address?] = []
     @Published private var index = -1
+    @Published private var zoomIndex = Browser.defaultZoomIndex
     var onStateChange: (() -> Void)?
     var onVisit: ((Address) -> Void)?
     private var transfer: Task<Void, Never>?
@@ -639,6 +660,9 @@ private final class Browser: ObservableObject, Identifiable {
 
     var canGoBack: Bool { index > 0 }
     var canGoForward: Bool { index + 1 < history.count }
+    var canZoomIn: Bool { zoomIndex < Self.zoomLevels.count - 1 }
+    var canZoomOut: Bool { zoomIndex > 0 }
+    var pageZoom: CGFloat { Self.zoomLevels[zoomIndex] }
     var current: Address? { history.indices.contains(index) ? history[index] : nil }
     var displayTitle: String { current.map(ReaderPage.displayTitle) ?? "New Tab" }
     var snapshot: TabSnapshot {
@@ -653,6 +677,13 @@ private final class Browser: ObservableObject, Identifiable {
     }
 
     deinit { transfer?.cancel() }
+
+    func changeZoom(by step: Int) {
+        let nextIndex = zoomIndex + step
+        if Self.zoomLevels.indices.contains(nextIndex) { zoomIndex = nextIndex }
+    }
+
+    func resetZoom() { zoomIndex = Self.defaultZoomIndex }
 
     func home() { navigate(HomePage.address()) }
     func back() { if canGoBack { move(to: index - 1) } }
