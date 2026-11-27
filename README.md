@@ -5,9 +5,12 @@ or a `gopher://` URL, and the home button opens Floodgap. Menus, text documents,
 type-7 search, common image formats, and file downloads are supported. HTTP
 and HTTPS links open in the default web browser.
 
-Use **⌘T** or the **+** button for a new tab, and **⇧⌘W** to close the
-selected tab when multiple tabs are open. Each tab keeps its own history and
-scroll position. Click the star beside the address field to save or remove a
+Use **⌘T** or the **+** button for a new tab. Middle-click a Gopher link or choose
+**Open in New Tab** from its context menu to open it in a background tab.
+Command-click a Gopher link to open a new window. Middle-click a tab to close
+it. **⌘W** closes the selected tab, or the window when it has one tab.
+Each tab keeps its own history and scroll position.
+Click the star beside the address field to save or remove a
 bookmark. The macOS **Bookmarks** menu opens saved addresses in the current
 tab, and **⌘D** adds the current page. Bookmarks are shared across windows and
 persist across launches.

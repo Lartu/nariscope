@@ -2,7 +2,6 @@ import AppKit
 import GopherCore
 import SwiftUI
 import UniformTypeIdentifiers
-import WebKit
 
 @main
 @MainActor
@@ -10,8 +9,8 @@ struct GopherBrowserApp: App {
     @StateObject private var bookmarks = BookmarkStore()
 
     var body: some Scene {
-        WindowGroup("Gopher Browser") {
-            BrowserWindow(bookmarks: bookmarks)
+        WindowGroup("Gopher Browser", id: "browser", for: WindowPage.self) { $page in
+            BrowserWindow(bookmarks: bookmarks, initialAddress: page.flatMap { try? Address($0.url) })
                 .frame(minWidth: 500, minHeight: 360)
         }
         .defaultSize(width: 960, height: 750)
@@ -19,6 +18,11 @@ struct GopherBrowserApp: App {
 
         Settings { ReaderSettings() }
     }
+}
+
+private struct WindowPage: Codable, Hashable {
+    let url: String
+    let id: UUID
 }
 
 private struct ReaderSettings: View {
@@ -90,7 +94,8 @@ private enum ReaderTheme {
 
 private struct BrowserActions {
     let newTab: () -> Void
-    let closeTab: (() -> Void)?
+    let closeTab: () -> Void
+    let hasMultipleTabs: Bool
     let focusAddress: () -> Void
     let addBookmark: (() -> Void)?
     let openBookmark: (Bookmark) -> Void
@@ -116,9 +121,14 @@ private struct BrowserCommands: Commands {
             Button("New Tab") { actions?.newTab() }
                 .keyboardShortcut("t", modifiers: .command)
                 .disabled(actions == nil)
-            Button("Close Tab") { actions?.closeTab?() }
-                .keyboardShortcut("w", modifiers: [.command, .shift])
-                .disabled(actions?.closeTab == nil)
+        }
+        CommandGroup(replacing: .saveItem) {
+            Button(actions?.hasMultipleTabs == true ? "Close Tab" : "Close Window") {
+                if let actions { actions.closeTab() }
+                else { NSApp.keyWindow?.performClose(nil) }
+            }
+            .keyboardShortcut("w", modifiers: .command)
+            .disabled(actions == nil && NSApp.keyWindow == nil)
         }
         CommandGroup(after: .toolbar) {
             Button("Focus Address") { actions?.focusAddress() }
@@ -151,6 +161,9 @@ private struct BrowserCommands: Commands {
 @MainActor
 private struct BrowserWindow: View {
     @ObservedObject var bookmarks: BookmarkStore
+    let initialAddress: Address?
+    @Environment(\.openWindow) private var openWindow
+    @Environment(\.dismiss) private var dismiss
     @State private var tabs = [Browser()]
     @State private var selectedIndex = 0
     @AppStorage(ReaderTheme.stylesheetKey) private var stylesheet: String?
@@ -162,7 +175,8 @@ private struct BrowserWindow: View {
     var body: some View {
         VStack(spacing: 0) {
             BrowserToolbar(browser: active, bookmarks: bookmarks, addressFocused: $addressFocused,
-                           newTab: newTab, closeTab: tabs.count > 1 ? { closeTab(active.id) } : nil)
+                           newTab: newTab, closeTab: { closeTab(active.id) },
+                           hasMultipleTabs: tabs.count > 1)
             Divider()
             HStack(spacing: 8) {
                 ScrollViewReader { scroll in
@@ -170,8 +184,8 @@ private struct BrowserWindow: View {
                         HStack(spacing: 4) {
                             ForEach(Array(tabs.enumerated()), id: \.element.id) { index, tab in
                                 TabButton(browser: tab, isSelected: index == selectedIndex,
-                                          select: { select(index) },
-                                          close: tabs.count > 1 ? { closeTab(tab.id) } : nil)
+                                          select: { select(index) }, close: { closeTab(tab.id) },
+                                          showsCloseButton: tabs.count > 1)
                                     .id(tab.id)
                             }
                         }
@@ -190,7 +204,9 @@ private struct BrowserWindow: View {
             ZStack {
                 ForEach(tabs) { tab in
                     let selected = tab.id == active.id
-                    BrowserContent(browser: tab, css: ReaderTheme.resolve(stylesheet, legacy: legacyCSS))
+                    BrowserContent(browser: tab, css: ReaderTheme.resolve(stylesheet, legacy: legacyCSS)) { url, destination in
+                        openLink(url, destination: destination, from: tab)
+                    }
                         .opacity(selected ? 1 : 0)
                         .allowsHitTesting(selected)
                         .accessibilityHidden(!selected)
@@ -198,13 +214,30 @@ private struct BrowserWindow: View {
                 }
             }
         }
-        .task { tabs.first?.start() }
+        .task { tabs.first?.start(at: initialAddress) }
     }
 
     private func newTab() {
         tabs.append(Browser())
         selectedIndex = tabs.count - 1
         addressFocused = true
+    }
+
+    private func openLink(_ url: URL, destination: LinkDestination, from tab: Browser) {
+        guard url.scheme?.lowercased() == "gopher", let address = try? Address(url.absoluteString) else {
+            tab.follow(url)
+            return
+        }
+        switch destination {
+        case .currentTab:
+            tab.navigate(address)
+        case .newTab:
+            let newTab = Browser()
+            newTab.navigate(address)
+            tabs.append(newTab)
+        case .newWindow:
+            openWindow(id: "browser", value: WindowPage(url: address.string, id: UUID()))
+        }
     }
 
     private func select(_ index: Int) {
@@ -214,12 +247,16 @@ private struct BrowserWindow: View {
     }
 
     private func closeTab(_ id: UUID) {
-        guard tabs.count > 1, let index = tabs.firstIndex(where: { $0.id == id }) else { return }
+        guard let index = tabs.firstIndex(where: { $0.id == id }) else { return }
+        tabs[index].stop()
+        if tabs.count == 1 {
+            dismiss()
+            return
+        }
         if index == selectedIndex { addressFocused = false }
         if index < selectedIndex || selectedIndex == tabs.count - 1 && index == selectedIndex {
             selectedIndex -= 1
         }
-        tabs[index].stop()
         tabs.remove(at: index)
     }
 }
@@ -228,7 +265,8 @@ private struct TabButton: View {
     @ObservedObject var browser: Browser
     let isSelected: Bool
     let select: () -> Void
-    let close: (() -> Void)?
+    let close: () -> Void
+    let showsCloseButton: Bool
 
     var body: some View {
         HStack(spacing: 3) {
@@ -242,7 +280,7 @@ private struct TabButton: View {
             }
             .accessibilityAddTraits(isSelected ? .isSelected : [])
             .help(browser.current?.string ?? "New Tab")
-            if let close {
+            if showsCloseButton {
                 Button(action: close) { Image(systemName: "xmark").font(.caption2) }
                     .accessibilityLabel("Close \(browser.displayTitle) tab")
                     .help("Close tab")
@@ -250,6 +288,7 @@ private struct TabButton: View {
         }
         .padding(.horizontal, 8)
         .background(.quaternary.opacity(isSelected ? 1 : 0), in: RoundedRectangle(cornerRadius: 5))
+        .background(MiddleClickArea(action: close))
     }
 }
 
@@ -258,7 +297,8 @@ private struct BrowserToolbar: View {
     @ObservedObject var bookmarks: BookmarkStore
     @FocusState.Binding var addressFocused: Bool
     let newTab: () -> Void
-    let closeTab: (() -> Void)?
+    let closeTab: () -> Void
+    let hasMultipleTabs: Bool
 
     var body: some View {
         let current = browser.current
@@ -300,6 +340,7 @@ private struct BrowserToolbar: View {
         .focusedSceneValue(\.browserActions, BrowserActions(
             newTab: newTab,
             closeTab: closeTab,
+            hasMultipleTabs: hasMultipleTabs,
             focusAddress: { addressFocused = true },
             addBookmark: saved ? nil : current.map { address in
                 { bookmarks.add(address, title: browser.displayTitle) }
@@ -347,9 +388,10 @@ private struct BrowserSearch: View {
 private struct BrowserContent: View {
     @ObservedObject var browser: Browser
     let css: String
+    let follow: (URL, LinkDestination) -> Void
 
     var body: some View {
-        ReaderView(html: ReaderPage.wrap(browser.content, css: css), follow: browser.follow)
+        ReaderView(html: ReaderPage.wrap(browser.content, css: css), follow: follow)
     }
 }
 
@@ -380,8 +422,9 @@ private final class Browser: ObservableObject, Identifiable {
 
     deinit { transfer?.cancel() }
 
-    func start() {
+    func start(at initialAddress: Address?) {
         guard history.isEmpty else { return }
+        if let initialAddress { navigate(initialAddress); return }
         let arguments = CommandLine.arguments
         if let input = arguments.dropFirst().first(where: { $0.hasPrefix("gopher://") }),
            let address = try? Address(input) {
@@ -554,44 +597,6 @@ private final class Browser: ObservableObject, Identifiable {
 
     private func showError(_ error: Error) {
         content = "<h1>Couldn’t open this item</h1><p>\(Renderer.escape(error.localizedDescription))</p>"
-    }
-}
-
-private struct ReaderView: NSViewRepresentable {
-    let html: String
-    let follow: (URL) -> Void
-
-    func makeCoordinator() -> Coordinator { Coordinator(follow: follow) }
-
-    func makeNSView(context: Context) -> WKWebView {
-        let configuration = WKWebViewConfiguration()
-        configuration.websiteDataStore = .nonPersistent()
-        configuration.defaultWebpagePreferences.allowsContentJavaScript = false
-        let view = WKWebView(frame: .zero, configuration: configuration)
-        view.navigationDelegate = context.coordinator
-        return view
-    }
-
-    func updateNSView(_ view: WKWebView, context: Context) {
-        guard context.coordinator.html != html else { return }
-        context.coordinator.html = html
-        view.loadHTMLString(html, baseURL: nil)
-    }
-
-    final class Coordinator: NSObject, WKNavigationDelegate {
-        var html: String?
-        let follow: (URL) -> Void
-        init(follow: @escaping (URL) -> Void) { self.follow = follow }
-
-        func webView(_ webView: WKWebView, decidePolicyFor action: WKNavigationAction,
-                     decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
-            if action.navigationType == .linkActivated, let url = action.request.url {
-                decisionHandler(.cancel)
-                follow(url)
-            } else {
-                decisionHandler(action.request.url?.absoluteString == "about:blank" ? .allow : .cancel)
-            }
-        }
     }
 }
 
