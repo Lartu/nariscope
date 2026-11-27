@@ -45,11 +45,11 @@ struct IconSettings: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("App Icon").font(.headline)
-            Text("Choose the icon shown in the Dock while Gopher Browser is open.")
+            Text("Choose the icon shown in the Dock while Nariscope is open.")
                 .foregroundStyle(.secondary)
 
             if AppIcon.sunny.image == nil {
-                Text("Icon choices are available in the packaged Gopher Browser app.")
+                Text("Icon choices are available in the packaged Nariscope app.")
                     .foregroundStyle(.secondary)
             } else {
                 HStack(spacing: 12) {

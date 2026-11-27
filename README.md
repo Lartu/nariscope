@@ -1,4 +1,4 @@
-# Gopher Browser
+# Nariscope
 
 A native macOS Gopher browser written in Swift. The toolbar accepts a hostname
 or a `gopher://` URL, and the home button opens Floodgap. Menus, text documents,
@@ -23,9 +23,9 @@ view. The application generates its own HTML and displays remote text as text.
 
 ## Settings
 
-Open **Gopher Browser → Settings** (⌘,) and choose **Stylesheet** to edit
+Open **Nariscope → Settings** (⌘,) and choose **Stylesheet** to edit
 the current CSS. On first launch it starts with the built-in theme from
-[Reader.css](Sources/GopherBrowser/Resources/Reader.css). Edit it in place or
+[Reader.css](Sources/Nariscope/Resources/Reader.css). Edit it in place or
 load a UTF-8 stylesheet to replace it. Click **Apply** to update every open
 reading pane. The setting persists between launches and applies to menus and
 Original Layout. Choose **Restore Defaults** and **Apply** to restore the
@@ -45,11 +45,11 @@ third-party dependencies.
 
 ```sh
 swift test
-swift run GopherBrowser
+swift run Nariscope
 bash build-app.sh
 ```
 
-`build-app.sh` puts a locally signed `Gopher Browser.app` in `outputs/` for
+`build-app.sh` puts a locally signed `Nariscope.app` in `outputs/` for
 the build machine's architecture. It accepts optional output and Swift build
 directories as positional arguments. Building the app bundle requires Xcode 26
 or later to compile [the Icon Composer artwork](Assets/GopherIcon.icon) into
@@ -58,7 +58,7 @@ the macOS app icon.
 To start at a particular address, pass a Gopher URL to the executable.
 
 ```sh
-swift run GopherBrowser gopher://gopher.floodgap.com/1
+swift run Nariscope gopher://gopher.floodgap.com/1
 ```
 
 The Swift tests cover URLs, selector bytes, menu parsing, and rendering. To

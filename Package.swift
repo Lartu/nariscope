@@ -2,12 +2,12 @@
 import PackageDescription
 
 let package = Package(
-    name: "GopherBrowser",
+    name: "Nariscope",
     platforms: [.macOS(.v13)],
-    products: [.executable(name: "GopherBrowser", targets: ["GopherBrowser"])],
+    products: [.executable(name: "Nariscope", targets: ["Nariscope"])],
     targets: [
         .target(name: "GopherCore"),
-        .executableTarget(name: "GopherBrowser", dependencies: ["GopherCore"],
+        .executableTarget(name: "Nariscope", dependencies: ["GopherCore"],
                           resources: [.copy("Resources/Reader.css")]),
         .testTarget(name: "GopherCoreTests", dependencies: ["GopherCore"])
     ]

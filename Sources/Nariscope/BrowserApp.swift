@@ -5,12 +5,12 @@ import UniformTypeIdentifiers
 
 @main
 @MainActor
-struct GopherBrowserApp: App {
+struct NariscopeApp: App {
     @NSApplicationDelegateAdaptor(BrowserAppDelegate.self) private var appDelegate
     @StateObject private var bookmarks = BookmarkStore()
 
     var body: some Scene {
-        WindowGroup("Gopher Browser", id: "browser", for: WindowPage.self) { $page in
+        WindowGroup("Nariscope", id: "browser", for: WindowPage.self) { $page in
             BrowserWindow(bookmarks: bookmarks, initialAddress: page.flatMap { try? Address($0.url) })
                 .frame(minWidth: 500, minHeight: 360)
         }
