@@ -5,7 +5,8 @@ or a `gopher://` URL, and the home button opens Floodgap. Menus, text documents,
 type-7 search, common image formats, and file downloads are supported. HTTP
 and HTTPS links open in the default web browser.
 
-Use **⌘T** or the **+** button for a new tab. Middle-click a Gopher link or choose
+Use **⌘T** or the **+** toolbar button for a new tab. The tab bar appears when
+there is more than one tab. Middle-click a Gopher link or choose
 **Open in New Tab** from its context menu to open it in a background tab.
 Command-click a Gopher link to open a new window. Middle-click a tab to close
 it. **⌘W** closes the selected tab, or the window when it has one tab.
@@ -17,9 +18,10 @@ persist across launches.
 
 The HTML reading view uses the same decisions as the Python corpus renderer.
 It turns hard-wrapped prose into paragraphs and keeps drawings, columns, and
-code in preformatted blocks. **Original layout** shows the source
-spacing for text and menu descriptions. Menu links remain clickable in either
-view. The application generates its own HTML and displays remote text as text.
+code in preformatted blocks. The **Original layout** icon beside the bookmark
+star shows the source spacing for text and menu descriptions. Menu links remain
+clickable in either view. The application generates its own HTML and displays
+remote text as text.
 
 ## Settings
 

@@ -186,14 +186,13 @@ private struct BrowserWindow: View {
                            newTab: newTab, closeTab: { closeTab(active.id) },
                            hasMultipleTabs: tabs.count > 1)
             Divider()
-            HStack(spacing: 8) {
+            if tabs.count > 1 {
                 ScrollViewReader { scroll in
                     ScrollView(.horizontal) {
                         HStack(spacing: 4) {
                             ForEach(Array(tabs.enumerated()), id: \.element.id) { index, tab in
                                 TabButton(browser: tab, isSelected: index == selectedIndex,
-                                          select: { select(index) }, close: { closeTab(tab.id) },
-                                          showsCloseButton: tabs.count > 1)
+                                          select: { select(index) }, close: { closeTab(tab.id) })
                                     .id(tab.id)
                             }
                         }
@@ -201,13 +200,10 @@ private struct BrowserWindow: View {
                     .scrollIndicators(.hidden)
                     .onChange(of: active.id) { id in scroll.scrollTo(id, anchor: .center) }
                 }
-                Button(action: newTab) { Image(systemName: "plus") }
-                    .accessibilityLabel("New tab").help("New tab (⌘T)")
-                BrowserPageActions(browser: active)
+                .buttonStyle(.borderless)
+                .padding(.horizontal, 12).padding(.vertical, 5)
+                Divider()
             }
-            .buttonStyle(.borderless)
-            .padding(.horizontal, 12).padding(.vertical, 5)
-            Divider()
             BrowserSearch(browser: active)
             ZStack {
                 ForEach(tabs) { tab in
@@ -274,7 +270,6 @@ private struct TabButton: View {
     let isSelected: Bool
     let select: () -> Void
     let close: () -> Void
-    let showsCloseButton: Bool
 
     var body: some View {
         HStack(spacing: 3) {
@@ -288,11 +283,9 @@ private struct TabButton: View {
             }
             .accessibilityAddTraits(isSelected ? .isSelected : [])
             .help(browser.current?.string ?? "New Tab")
-            if showsCloseButton {
-                Button(action: close) { Image(systemName: "xmark").font(.caption2) }
-                    .accessibilityLabel("Close \(browser.displayTitle) tab")
-                    .help("Close tab")
-            }
+            Button(action: close) { Image(systemName: "xmark").font(.caption2) }
+                .accessibilityLabel("Close \(browser.displayTitle) tab")
+                .help("Close tab")
         }
         .padding(.horizontal, 8)
         .background(.quaternary.opacity(isSelected ? 1 : 0), in: RoundedRectangle(cornerRadius: 5))
@@ -326,6 +319,8 @@ private struct BrowserToolbar: View {
                     .help(browser.loading ? "Stop" : "Reload")
                     .keyboardShortcut("r", modifiers: .command)
                 Button(action: browser.home) { Image(systemName: "house") }.help("Floodgap home")
+                Button(action: newTab) { Image(systemName: "plus") }
+                    .accessibilityLabel("New tab").help("New tab (⌘T)")
             }
             TextField("Gopher address", text: $browser.addressField)
                 .textFieldStyle(.roundedBorder)
@@ -342,6 +337,21 @@ private struct BrowserToolbar: View {
             .disabled(current == nil)
             .accessibilityLabel(starLabel)
             .help(starLabel)
+            if browser.canToggleOriginal {
+                Button {
+                    browser.original.toggle()
+                } label: {
+                    Image(systemName: browser.original ? "doc.plaintext.fill" : "doc.plaintext")
+                        .foregroundStyle(browser.original ? Color.accentColor : Color.secondary)
+                }
+                .accessibilityLabel("Original layout")
+                .accessibilityAddTraits(browser.original ? .isSelected : [])
+                .help(browser.original ? "Show rendered layout" : "Show original layout")
+            }
+            if browser.downloadAddress != nil {
+                Button("Save…", action: browser.saveFile).disabled(browser.downloading)
+            }
+            if browser.loading { ProgressView().controlSize(.small) }
         }
         .buttonStyle(.borderless)
         .padding(.horizontal, 12).padding(.vertical, 8)
@@ -358,21 +368,6 @@ private struct BrowserToolbar: View {
                 if let address = try? Address(bookmark.url) { browser.navigate(address) }
             }
         ))
-    }
-}
-
-private struct BrowserPageActions: View {
-    @ObservedObject var browser: Browser
-
-    var body: some View {
-        if browser.loading { ProgressView().controlSize(.small) }
-        if browser.canToggleOriginal {
-            Toggle("Original layout", isOn: $browser.original)
-                .toggleStyle(.button).help("Show or hide the original line breaks")
-        }
-        if browser.downloadAddress != nil {
-            Button("Save…", action: browser.saveFile).disabled(browser.downloading)
-        }
     }
 }
 
