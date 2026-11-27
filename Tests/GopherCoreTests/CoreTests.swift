@@ -95,4 +95,78 @@ final class CoreTests: XCTestCase {
             XCTAssertTrue(results.contains { $0.label.contains("forest trail") })
         }
     }
+
+    private func binaryFixture(_ selector: String) throws -> Address {
+        let env = ProcessInfo.processInfo.environment
+        guard let url = env["GOPHER_TEST_URL"], env["GOPHER_TEST_SEARCH"] != nil else {
+            throw XCTSkip("Start Tests/Fixtures/gopher_fixture.py and set GOPHER_TEST_URL and GOPHER_TEST_SEARCH.")
+        }
+        let root = try Address(url)
+        return Address(host: root.host, port: root.port, type: 57, selector: Data(selector.utf8))
+    }
+
+    func testDownloadsBinaryLargerThanPreviewLimit() async throws {
+        let address = try binaryFixture("/large.bin")
+        let directory = try temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let destination = directory.appendingPathComponent("large.bin")
+        try Data("old bytes".utf8).write(to: destination)
+
+        do {
+            _ = try await GopherClient.fetch(address)
+            XCTFail("Buffered fetch should still reject files larger than 16 MiB")
+        } catch GopherError.tooLarge {
+            // Expected for the same response that the download path can save.
+        }
+        let count = try await GopherClient.download(address, to: destination)
+        XCTAssertEqual(count, 20 * 1024 * 1024)
+        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: directory.path), ["large.bin"])
+
+        let input = try FileHandle(forReadingFrom: destination)
+        defer { try? input.close() }
+        let pattern = Data((0..<65_536).map { UInt8(truncatingIfNeeded: $0) })
+        for _ in 0..<320 {
+            XCTAssertEqual(try input.read(upToCount: pattern.count), pattern)
+        }
+        XCTAssertTrue((try input.read(upToCount: 1) ?? Data()).isEmpty)
+    }
+
+    func testCancellationRemovesPartialDownloadAndPreservesDestination() async throws {
+        let address = try binaryFixture("/slow.bin")
+        let directory = try temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let destination = directory.appendingPathComponent("existing.bin")
+        let oldBytes = Data("keep this file".utf8)
+        try oldBytes.write(to: destination)
+
+        let download = Task { try await GopherClient.download(address, to: destination) }
+        defer { download.cancel() }
+        var received = false
+        for _ in 0..<100 {
+            let files = try FileManager.default.contentsOfDirectory(
+                at: directory, includingPropertiesForKeys: [.fileSizeKey]
+            )
+            if let partial = files.first(where: { $0.lastPathComponent.hasPrefix(".gopher-download.") }),
+               let bytes = try? partial.resourceValues(forKeys: [.fileSizeKey]).fileSize, bytes > 0 {
+                received = true
+                break
+            }
+            try await Task.sleep(nanoseconds: 10_000_000)
+        }
+        XCTAssertTrue(received, "The file should already be on disk before the server closes")
+        XCTAssertEqual(try Data(contentsOf: destination), oldBytes)
+        download.cancel()
+        do {
+            _ = try await download.value
+            XCTFail("Expected the download to be canceled")
+        } catch is CancellationError {}
+        XCTAssertEqual(try Data(contentsOf: destination), oldBytes)
+        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: directory.path), ["existing.bin"])
+    }
+
+    private func temporaryDirectory() throws -> URL {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: url, withIntermediateDirectories: false)
+        return url
+    }
 }

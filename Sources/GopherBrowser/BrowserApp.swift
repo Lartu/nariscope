@@ -120,8 +120,9 @@ private struct BrowserWindow: View {
                     Toggle("Original layout", isOn: $browser.original)
                         .toggleStyle(.button).help("Show or hide the original line breaks")
                 }
-                if browser.file != nil {
+                if browser.downloadAddress != nil {
                     Button("Save…", action: browser.saveFile)
+                        .disabled(browser.downloading)
                 }
             }
             .buttonStyle(.borderless)
@@ -152,17 +153,21 @@ private final class Browser: ObservableObject {
     @Published private(set) var content = ""
     @Published private(set) var loading = false
     @Published private(set) var searchAddress: Address?
-    @Published private(set) var file: Data?
+    @Published private(set) var downloadAddress: Address?
+    @Published private(set) var downloading = false
     @Published private(set) var canToggleOriginal = false
     @Published private var history: [Address] = []
     @Published private var index = -1
     private var transfer: Task<Void, Never>?
+    private var showingSavePanel = false
     private var rendered = ""
     private var originalRendered = ""
 
     var canGoBack: Bool { index > 0 }
     var canGoForward: Bool { index + 1 < history.count }
     private var current: Address? { history.indices.contains(index) ? history[index] : nil }
+
+    deinit { transfer?.cancel() }
 
     func start() {
         guard history.isEmpty else { return }
@@ -182,7 +187,8 @@ private final class Browser: ObservableObject {
         transfer?.cancel()
         transfer = nil
         loading = false
-        content = "<h1>Loading stopped</h1>"
+        content = downloading ? "<h1>Download canceled</h1>" : "<h1>Loading stopped</h1>"
+        downloading = false
     }
 
     func submit() {
@@ -191,7 +197,7 @@ private final class Browser: ObservableObject {
             stop()
             canToggleOriginal = false
             searchAddress = nil
-            file = nil
+            downloadAddress = nil
             showError(error)
         }
     }
@@ -212,15 +218,39 @@ private final class Browser: ObservableObject {
     }
 
     func saveFile() {
-        guard let file, let current else { return }
+        guard let address = downloadAddress, !downloading, !showingSavePanel else { return }
+        showingSavePanel = true
         let panel = NSSavePanel()
-        let selector = GopherProtocol.decode(current.selector)
+        let selector = GopherProtocol.decode(address.selector)
         let proposed = selector.split(separator: "/").last.map(String.init) ?? "download"
         panel.nameFieldStringValue = proposed == "." || proposed == ".." ? "download" : proposed
         panel.begin { [weak self] response in
-            guard response == .OK, let url = panel.url else { return }
-            do { try file.write(to: url, options: .atomic) }
-            catch { self?.showError(error) }
+            guard let self else { return }
+            self.showingSavePanel = false
+            guard response == .OK, let url = panel.url, self.downloadAddress == address else { return }
+            self.download(address, to: url)
+        }
+    }
+
+    private func download(_ address: Address, to url: URL) {
+        transfer?.cancel()
+        loading = true
+        downloading = true
+        content = "<h1>\(ReaderPage.title(address))</h1><p>Downloading…</p>"
+        transfer = Task { [weak self] in
+            let result: Result<Int64, Error>
+            do { result = .success(try await GopherClient.download(address, to: url)) }
+            catch { result = .failure(error) }
+            guard let self, !Task.isCancelled else { return }
+            switch result {
+            case .success(let count):
+                let size = ByteCountFormatter.string(fromByteCount: count, countStyle: .file)
+                self.content = "<h1>\(ReaderPage.title(address))</h1><p>Saved \(Renderer.escape(url.lastPathComponent)) (\(size)).</p>"
+            case .failure(let error):
+                self.content = "<h1>Couldn’t save this item</h1><p>\(Renderer.escape(error.localizedDescription))</p>"
+            }
+            self.loading = false
+            self.downloading = false
         }
     }
 
@@ -235,15 +265,26 @@ private final class Browser: ObservableObject {
 
     private func load(_ address: Address) {
         transfer?.cancel()
+        transfer = nil
         addressField = address.string
         canToggleOriginal = false
         searchAddress = nil
-        file = nil
+        downloadAddress = nil
         loading = false
+        downloading = false
         if address.type == 55, address.query == nil {
             searchAddress = address
             content = "<h1>Search \(Renderer.escape(address.host))</h1><p>Enter a query above to search this Gopher index.</p>"
             return
+        }
+
+        let isPage = [48, 49, 55, 104].contains(address.type)
+        if !isPage {
+            downloadAddress = address
+            if !ReaderPage.isImage(address) {
+                content = "<h1>\(ReaderPage.title(address))</h1><p>Click Save… to download this file.</p>"
+                return
+            }
         }
 
         loading = true
@@ -277,18 +318,20 @@ private final class Browser: ObservableObject {
                     canToggleOriginal = true
                     updateReader()
                 default:
-                    file = data
                     if let mime = ReaderPage.imageType(data, address: address) {
                         content = "<h1>\(ReaderPage.title(address))</h1><img alt=\"Gopher image\" src=\"data:\(mime);base64,\(data.base64EncodedString())\">"
                     } else {
-                        let size = ByteCountFormatter.string(fromByteCount: Int64(data.count), countStyle: .file)
-                        content = "<h1>\(ReaderPage.title(address))</h1><p>\(size) downloaded. Use Save to keep a copy.</p>"
+                        content = "<h1>\(ReaderPage.title(address))</h1><p>No preview is available. Click Save… to download this file.</p>"
                     }
                 }
                 loading = false
             } catch {
                 guard !Task.isCancelled else { return }
-                showError(error)
+                if ReaderPage.isImage(address) {
+                    content = "<h1>Preview unavailable</h1><p>\(Renderer.escape(error.localizedDescription)) Click Save… to download the original.</p>"
+                } else {
+                    showError(error)
+                }
                 loading = false
             }
         }
@@ -348,8 +391,10 @@ private enum ReaderPage {
         return Renderer.escape(name)
     }
 
+    static func isImage(_ address: Address) -> Bool { [103, 73, 112, 58].contains(address.type) }
+
     static func imageType(_ data: Data, address: Address) -> String? {
-        guard [103, 73, 112, 58].contains(address.type) else { return nil }
+        guard isImage(address) else { return nil }
         if data.starts(with: [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]) { return "image/png" }
         if data.starts(with: [0xFF, 0xD8, 0xFF]) { return "image/jpeg" }
         if data.starts(with: "GIF87a".utf8) || data.starts(with: "GIF89a".utf8) { return "image/gif" }

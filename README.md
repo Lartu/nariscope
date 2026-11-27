@@ -76,5 +76,8 @@ GOPHER_PARITY_FIXTURE="$PWD/work/parity.json" swift test
 
 Downloaded pages, generated HTML, and app builds are kept outside Git.
 
-The client connects directly over plaintext Gopher TCP and limits responses
-to 16 MiB with a 20-second request timeout.
+The client connects directly over plaintext Gopher TCP. Menus, text, and
+image previews have a 16 MiB limit and a 20-second request timeout. To save a
+file, choose **Save…** and pick its destination. Downloads stream to disk
+without the preview size limit and time out after 20 seconds without data.
+Canceled or failed transfers discard their partial file.

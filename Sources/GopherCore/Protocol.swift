@@ -1,3 +1,4 @@
+import Darwin
 import Foundation
 import Network
 
@@ -163,12 +164,64 @@ public enum GopherProtocol {
 
 public enum GopherClient {
     public static func fetch(_ address: Address) async throws -> Data {
+        var bytes = Data()
+        try await receive(address, idleTimeout: false) { chunk in
+            guard bytes.count + chunk.count <= 16_777_216 else { throw GopherError.tooLarge }
+            bytes.append(chunk)
+        }
+        return bytes
+    }
+
+    /// Save a binary Gopher response. The destination is replaced only after EOF.
+    public static func download(_ address: Address, to destination: URL) async throws -> Int64 {
+        guard destination.isFileURL else { throw CocoaError(.fileWriteUnsupportedScheme) }
+        try Task.checkCancellation()
+
+        // Stage on the same filesystem so publication is an atomic rename.
+        let template = destination.deletingLastPathComponent()
+            .appendingPathComponent(".gopher-download.XXXXXX")
+        var path = Array(template.path.utf8CString)
+        let descriptor = path.withUnsafeMutableBufferPointer { mkstemp($0.baseAddress!) }
+        guard descriptor >= 0 else { throw fileError(errno) }
+        let staged = URL(fileURLWithPath: String(cString: path))
+        let handle = FileHandle(fileDescriptor: descriptor, closeOnDealloc: true)
+        defer { try? FileManager.default.removeItem(at: staged) }
+
+        var count: Int64 = 0
+        do {
+            try await receive(address, idleTimeout: true) { chunk in
+                try handle.write(contentsOf: chunk)
+                count += Int64(chunk.count)
+            }
+            try handle.close()
+        } catch {
+            try? handle.close()
+            throw error
+        }
+        try Task.checkCancellation()
+        let error = staged.withUnsafeFileSystemRepresentation { source in
+            destination.withUnsafeFileSystemRepresentation { target -> Int32 in
+                guard let source, let target else { return EINVAL }
+                return rename(source, target) == 0 ? 0 : errno
+            }
+        }
+        if error != 0 { throw fileError(error) }
+        return count
+    }
+
+    private static func fileError(_ code: Int32) -> POSIXError {
+        POSIXError(POSIXErrorCode(rawValue: code) ?? .EIO)
+    }
+
+    private static func receive(_ address: Address, idleTimeout: Bool,
+                                chunk: @escaping (Data) throws -> Void) async throws {
         let request = try address.request
         guard let port = NWEndpoint.Port(rawValue: address.port), port.rawValue > 0 else {
             throw GopherError.invalidAddress
         }
-        let transfer = Transfer(address: address, port: port, request: request)
-        return try await withTaskCancellationHandler {
+        let transfer = Transfer(address: address, port: port, request: request,
+                                idleTimeout: idleTimeout, chunk: chunk)
+        try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { transfer.start($0) }
         } onCancel: {
             transfer.cancel()
@@ -180,23 +233,29 @@ private final class Transfer: @unchecked Sendable {
     private let queue = DispatchQueue(label: "gopher.transfer")
     private let connection: NWConnection
     private let request: Data
-    private var continuation: CheckedContinuation<Data, Error>?
-    private var bytes = Data()
+    private let idleTimeout: Bool
+    private let chunk: (Data) throws -> Void
+    private var continuation: CheckedContinuation<Void, Error>?
     private var cancelled = false
-    private var timer: DispatchWorkItem?
+    private var timer: DispatchSourceTimer?
 
-    init(address: Address, port: NWEndpoint.Port, request: Data) {
+    init(address: Address, port: NWEndpoint.Port, request: Data,
+         idleTimeout: Bool, chunk: @escaping (Data) throws -> Void) {
         connection = NWConnection(host: NWEndpoint.Host(address.host), port: port, using: .tcp)
         self.request = request
+        self.idleTimeout = idleTimeout
+        self.chunk = chunk
     }
 
-    func start(_ continuation: CheckedContinuation<Data, Error>) {
+    func start(_ continuation: CheckedContinuation<Void, Error>) {
         queue.async { [self] in
             self.continuation = continuation
             if self.cancelled { self.finish(.failure(CancellationError())); return }
-            let timer = DispatchWorkItem { [weak self] in self?.finish(.failure(GopherError.timedOut)) }
+            let timer = DispatchSource.makeTimerSource(queue: self.queue)
+            timer.setEventHandler { [weak self] in self?.finish(.failure(GopherError.timedOut)) }
+            timer.schedule(deadline: .now() + 20)
             self.timer = timer
-            self.queue.asyncAfter(deadline: .now() + 20, execute: timer)
+            timer.activate()
             self.connection.stateUpdateHandler = { state in
                 switch state {
                 case .ready:
@@ -218,18 +277,26 @@ private final class Transfer: @unchecked Sendable {
     private func receive() {
         guard continuation != nil else { return }
         connection.receive(minimumIncompleteLength: 1, maximumLength: 65_536) { data, _, complete, error in
-            if let data { self.bytes.append(data) }
-            if self.bytes.count > 16_777_216 { self.finish(.failure(GopherError.tooLarge)) }
-            else if let error { self.finish(.failure(error)) }
-            else if complete { self.finish(.success(self.bytes)) }
-            else { self.receive() }
+            guard self.continuation != nil else { return }
+            do {
+                if let error { throw error }
+                if let data, !data.isEmpty {
+                    try self.chunk(data)
+                    if self.idleTimeout { self.timer?.schedule(deadline: .now() + 20) }
+                }
+                if complete { self.finish(.success(())) }
+                else { self.receive() }
+            } catch {
+                self.finish(.failure(error))
+            }
         }
     }
 
-    private func finish(_ result: Result<Data, Error>) {
+    private func finish(_ result: Result<Void, Error>) {
         guard let continuation else { return }
         self.continuation = nil
         timer?.cancel()
+        timer = nil
         connection.stateUpdateHandler = nil
         connection.cancel()
         continuation.resume(with: result)

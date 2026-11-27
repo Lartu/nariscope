@@ -1,5 +1,6 @@
 from socketserver import StreamRequestHandler, ThreadingTCPServer
 import sys
+import time
 
 
 class Handler(StreamRequestHandler):
@@ -7,12 +8,25 @@ class Handler(StreamRequestHandler):
         selector = self.rfile.readline(8192).rstrip(b"\r\n")
         authority = f"127.0.0.1\t{self.server.server_address[1]}\r\n".encode()
         entry = lambda item: item + b"\t" + authority
+        if selector in (b"/large.bin", b"/slow.bin"):
+            block = bytes(range(256)) * 256
+            try:
+                if selector == b"/slow.bin":
+                    self.wfile.write(block)
+                    time.sleep(5)
+                else:
+                    for _ in range(320):
+                        self.wfile.write(block)
+            except (BrokenPipeError, ConnectionResetError):
+                pass
+            return
         if selector in (b"", b"/"):
             response = b"".join([
                 entry(b"iLocal Gopher test server\t"),
                 entry(b"0The old road\t/read"),
                 entry(b"1Another menu\t/menu"),
                 entry(b"7Search the trail index\t/query"),
+                entry(b"9Large binary fixture\t/large.bin"),
             ])
         elif selector == b"/read":
             response = (
