@@ -8,14 +8,15 @@ class Handler(StreamRequestHandler):
         selector = self.rfile.readline(8192).rstrip(b"\r\n")
         authority = f"127.0.0.1\t{self.server.server_address[1]}\r\n".encode()
         entry = lambda item: item + b"\t" + authority
-        if selector in (b"/large.bin", b"/slow.bin"):
+        if selector in (b"/large.bin", b"/preview-limit.bin", b"/slow.bin"):
             block = bytes(range(256)) * 256
             try:
                 if selector == b"/slow.bin":
                     self.wfile.write(block)
                     time.sleep(5)
                 else:
-                    for _ in range(320):
+                    size_mib = 50 if selector == b"/preview-limit.bin" else 52
+                    for _ in range(size_mib * 16):
                         self.wfile.write(block)
             except (BrokenPipeError, ConnectionResetError):
                 pass

@@ -105,6 +105,12 @@ final class CoreTests: XCTestCase {
         return Address(host: root.host, port: root.port, type: 57, selector: Data(selector.utf8))
     }
 
+    func testBufferedFetchAccepts50MiB() async throws {
+        let address = try binaryFixture("/preview-limit.bin")
+        let bytes = try await GopherClient.fetch(address)
+        XCTAssertEqual(bytes.count, 50 * 1024 * 1024)
+    }
+
     func testDownloadsBinaryLargerThanPreviewLimit() async throws {
         let address = try binaryFixture("/large.bin")
         let directory = try temporaryDirectory()
@@ -114,18 +120,18 @@ final class CoreTests: XCTestCase {
 
         do {
             _ = try await GopherClient.fetch(address)
-            XCTFail("Buffered fetch should still reject files larger than 16 MiB")
+            XCTFail("Buffered fetch should reject files larger than 50 MiB")
         } catch GopherError.tooLarge {
             // Expected for the same response that the download path can save.
         }
         let count = try await GopherClient.download(address, to: destination)
-        XCTAssertEqual(count, 20 * 1024 * 1024)
+        XCTAssertEqual(count, 52 * 1024 * 1024)
         XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: directory.path), ["large.bin"])
 
         let input = try FileHandle(forReadingFrom: destination)
         defer { try? input.close() }
         let pattern = Data((0..<65_536).map { UInt8(truncatingIfNeeded: $0) })
-        for _ in 0..<320 {
+        for _ in 0..<(52 * 16) {
             XCTAssertEqual(try input.read(upToCount: pattern.count), pattern)
         }
         XCTAssertTrue((try input.read(upToCount: 1) ?? Data()).isEmpty)

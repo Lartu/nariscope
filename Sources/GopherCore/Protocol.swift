@@ -2,6 +2,8 @@ import Darwin
 import Foundation
 import Network
 
+private let bufferedResponseLimitMiB = 50
+
 public enum GopherError: LocalizedError {
     case invalidAddress, invalidSelector, tooLarge, timedOut
 
@@ -9,7 +11,7 @@ public enum GopherError: LocalizedError {
         switch self {
         case .invalidAddress: return "Enter a valid Gopher address."
         case .invalidSelector: return "The selector or search query contains an invalid character."
-        case .tooLarge: return "This response exceeds the 16 MB download limit."
+        case .tooLarge: return "This response exceeds the \(bufferedResponseLimitMiB) MiB in-memory limit."
         case .timedOut: return "The Gopher server did not respond in time."
         }
     }
@@ -166,7 +168,9 @@ public enum GopherClient {
     public static func fetch(_ address: Address) async throws -> Data {
         var bytes = Data()
         try await receive(address, idleTimeout: false) { chunk in
-            guard bytes.count + chunk.count <= 16_777_216 else { throw GopherError.tooLarge }
+            guard bytes.count + chunk.count <= bufferedResponseLimitMiB * 1024 * 1024 else {
+                throw GopherError.tooLarge
+            }
             bytes.append(chunk)
         }
         return bytes
