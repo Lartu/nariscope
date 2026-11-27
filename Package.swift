@@ -9,6 +9,7 @@ let package = Package(
         .target(name: "GopherCore"),
         .executableTarget(name: "Nariscope", dependencies: ["GopherCore"],
                           resources: [.copy("Resources/Reader.css"), .copy("Resources/ReaderDark.css")]),
-        .testTarget(name: "GopherCoreTests", dependencies: ["GopherCore"])
+        .testTarget(name: "GopherCoreTests", dependencies: ["GopherCore"]),
+        .testTarget(name: "NariscopeTests", dependencies: ["Nariscope", "GopherCore"])
     ]
 )

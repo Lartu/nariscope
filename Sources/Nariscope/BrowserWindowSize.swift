@@ -4,6 +4,8 @@ import SwiftUI
 /// Shares the last normal browser window size across windows and launches.
 struct BrowserWindowSize: NSViewRepresentable {
     private static let key = "lastBrowserWindowContentSize"
+    let onActivate: () -> Void
+    let onClose: () -> Void
 
     static var lastSize: CGSize {
         let stored = UserDefaults.standard.string(forKey: key).map(NSSizeFromString)
@@ -15,7 +17,10 @@ struct BrowserWindowSize: NSViewRepresentable {
     }
 
     func makeNSView(context: Context) -> Tracker { Tracker() }
-    func updateNSView(_ view: Tracker, context: Context) {}
+    func updateNSView(_ view: Tracker, context: Context) {
+        view.onActivate = onActivate
+        view.onClose = onClose
+    }
 
     static func dismantleNSView(_ view: Tracker, coordinator: ()) {
         view.disconnect()
@@ -25,6 +30,8 @@ struct BrowserWindowSize: NSViewRepresentable {
         private weak var observedWindow: NSWindow?
         private var ready = false
         private var changingFullScreen = false
+        var onActivate: (() -> Void)?
+        var onClose: (() -> Void)?
 
         override func viewDidMoveToWindow() {
             super.viewDidMoveToWindow()
@@ -33,8 +40,11 @@ struct BrowserWindowSize: NSViewRepresentable {
             guard let window else { return }
 
             observedWindow = window
+            window.isRestorable = false
             let size = BrowserWindowSize.lastSize
             let notifications = NotificationCenter.default
+            notifications.addObserver(self, selector: #selector(windowWillClose),
+                                      name: NSWindow.willCloseNotification, object: window)
             for name in [NSWindow.didBecomeKeyNotification, NSWindow.didResizeNotification,
                          NSWindow.didEndLiveResizeNotification] {
                 notifications.addObserver(self, selector: #selector(windowSizeChanged(_:)), name: name, object: window)
@@ -59,6 +69,7 @@ struct BrowserWindowSize: NSViewRepresentable {
                 }
                 self.ready = true
                 self.rememberSize()
+                if window.isKeyWindow { self.onActivate?() }
             }
         }
 
@@ -70,8 +81,11 @@ struct BrowserWindowSize: NSViewRepresentable {
         }
 
         @objc private func windowSizeChanged(_ notification: Notification) {
+            if notification.name == NSWindow.didBecomeKeyNotification { onActivate?() }
             rememberSize(liveResizeFinished: notification.name == NSWindow.didEndLiveResizeNotification)
         }
+
+        @objc private func windowWillClose(_ notification: Notification) { onClose?() }
 
         private func rememberSize(liveResizeFinished: Bool = false) {
             guard let window = observedWindow, ready, window.isKeyWindow,

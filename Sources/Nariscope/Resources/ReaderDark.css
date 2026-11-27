@@ -23,6 +23,11 @@ h1 {
     color: #ff907f;
 }
 
+.loadingtext {
+    line-height: 1.2;
+    overflow-wrap: anywhere;
+}
+
 h2 {
     color: inherit;
 }

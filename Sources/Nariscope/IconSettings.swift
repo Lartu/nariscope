@@ -33,11 +33,19 @@ private enum AppIcon: String, CaseIterable, Identifiable {
     }
 }
 
+@MainActor
 final class BrowserAppDelegate: NSObject, NSApplicationDelegate {
+    let browsing = BrowsingHistory()
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         let icon = UserDefaults.standard.string(forKey: AppIcon.storageKey)
             .flatMap(AppIcon.init(rawValue:)) ?? .sunny
         icon.apply()
+    }
+
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        browsing.prepareToTerminate()
+        return .terminateNow
     }
 }
 

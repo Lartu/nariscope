@@ -1,7 +1,7 @@
 # Nariscope
 
 A native macOS Gopher browser written in Swift. The toolbar accepts a hostname
-or a `gopher://` URL, and the home button opens Floodgap. Menus, text documents,
+or a `gopher://` URL, and the home button opens your homepage. Menus, text documents,
 type-7 search, common image formats, and file downloads are supported. HTTP
 and HTTPS links open in the default web browser.
 
@@ -18,6 +18,12 @@ bookmark. The macOS **Bookmarks** menu opens saved addresses in the current
 tab, and **⌘D** adds the current page. Bookmarks are shared across windows and
 persist across launches.
 
+The **History** menu lists recent visits and opens a searchable history with
+**⌘Y**. Use **⇧⌘W** to reopen the last closed tab. The menu can also reopen
+the last closed window or open the windows from the previous session in
+addition to the current windows. Restored tabs keep their navigation history
+and reload their pages.
+
 The HTML reading view uses the same decisions as the Python corpus renderer.
 It turns hard-wrapped prose into paragraphs and keeps drawings, columns, and
 code in preformatted blocks. The **Original layout** icon beside the bookmark
@@ -27,6 +33,10 @@ remote text as text.
 
 ## Settings
 
+In **Nariscope → Settings → General**, enter a homepage address, set it to the
+current page, or choose a blank page. The homepage is used at launch, in new
+windows, and by the Home button. The default is Floodgap.
+
 Nariscope follows the macOS appearance and switches open pages between its
 [light stylesheet](Sources/Nariscope/Resources/Reader.css) and
 [dark stylesheet](Sources/Nariscope/Resources/ReaderDark.css).
@@ -35,6 +45,7 @@ or **Dark** to edit that mode. Edit the CSS in place or load a UTF-8 stylesheet,
 then click **Apply**. Each mode is saved separately and styles both menus and
 Original Layout. **Restore Defaults** followed by **Apply** resets the selected
 mode. Previously saved custom CSS carries over to the Light stylesheet.
+Use `.loadingtext` to style the heading shown while a page loads.
 
 External CSS imports and remote fonts are blocked.
 
