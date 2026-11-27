@@ -11,6 +11,8 @@ there is more than one tab. Middle-click a Gopher link or choose
 Command-click a Gopher link to open a new window. Middle-click a tab to close
 it. **⌘W** closes the selected tab, or the window when it has one tab.
 Each tab keeps its own history and scroll position.
+New browser windows use the most recently used browser window's size, even
+after restarting Nariscope.
 Click the star beside the address field to save or remove a
 bookmark. The macOS **Bookmarks** menu opens saved addresses in the current
 tab, and **⌘D** adds the current page. Bookmarks are shared across windows and

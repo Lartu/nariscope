@@ -10,11 +10,13 @@ struct NariscopeApp: App {
     @StateObject private var bookmarks = BookmarkStore()
 
     var body: some Scene {
+        let size = BrowserWindowSize.lastSize
         WindowGroup("Nariscope", id: "browser", for: WindowPage.self) { $page in
             BrowserWindow(bookmarks: bookmarks, initialAddress: page.flatMap { try? Address($0.url) })
                 .frame(minWidth: 500, minHeight: 360)
+                .background { BrowserWindowSize().allowsHitTesting(false) }
         }
-        .defaultSize(width: 960, height: 750)
+        .defaultSize(width: size.width, height: size.height)
         .commands { BrowserCommands(bookmarks: bookmarks) }
 
         Settings {
