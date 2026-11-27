@@ -14,7 +14,8 @@ bin_dir="$(swift build --package-path "$project_dir" --scratch-path "$build_dir"
 mkdir -p "$staged_app/Contents/MacOS" "$staged_app/Contents/Resources"
 cp "$project_dir/Info.plist" "$staged_app/Contents/Info.plist"
 cp "$project_dir/Sources/Nariscope/Resources/Reader.css" \
-    "$project_dir/Sources/Nariscope/Resources/ReaderDark.css" "$staged_app/Contents/Resources/"
+    "$project_dir/Sources/Nariscope/Resources/ReaderDark.css" \
+    "$project_dir/Sources/Nariscope/Resources/Credits.rtf" "$staged_app/Contents/Resources/"
 install -m 755 "$bin_dir/Nariscope" "$staged_app/Contents/MacOS/Nariscope"
 
 minimum_macos="$(plutil -extract LSMinimumSystemVersion raw "$project_dir/Info.plist")"
