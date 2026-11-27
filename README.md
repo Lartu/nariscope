@@ -44,7 +44,9 @@ bash build-app.sh
 
 `build-app.sh` puts a locally signed `Gopher Browser.app` in `outputs/` for
 the build machine's architecture. It accepts optional output and Swift build
-directories as positional arguments.
+directories as positional arguments. Building the app bundle requires Xcode 26
+or later to compile [the Icon Composer artwork](Assets/GopherIcon.icon) into
+the macOS app icon.
 
 To start at a particular address, pass a Gopher URL to the executable.
 
