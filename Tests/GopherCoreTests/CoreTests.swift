@@ -78,14 +78,19 @@ final class CoreTests: XCTestCase {
                        "@media (width < 600px) { p::after { content: \"\\3C /style>\" } }")
     }
 
-    func testMenuSuppressesStandaloneRulesWhileKeepingOriginalAndArtwork() {
-        let art = "+------+\n| ART! |\n+------+"
-        let source = "Welcome to this menu.\n\n-----\n\n" + art
-        let menu = Renderer.document(source, showRules: false)
-        XCTAssertFalse(menu.contains("<hr>"))
-        XCTAssertTrue(menu.contains(Renderer.pre(art)))
-        XCTAssertTrue(Renderer.document(source).contains("<hr>"))
-        XCTAssertEqual(Renderer.document(source, original: true, showRules: false), Renderer.pre(source))
+    func testPreservesFloodgapBannerBordersAndStandaloneDividers() {
+        let banner = """
+        ***********************************************************
+        **              OVER 25 YEARS SERVING YOU!               **
+        **               Plain text is beautiful!                **
+        ***********************************************************
+        """
+        let source = "Welcome to this menu.\n\n-----\n\n" + banner
+        let rendered = Renderer.document(source, links: true)
+        XCTAssertFalse(rendered.contains("<hr>"))
+        XCTAssertTrue(rendered.contains(Renderer.pre(banner)))
+        XCTAssertTrue(rendered.contains(Renderer.pre("-----")))
+        XCTAssertEqual(Renderer.document(source, original: true), Renderer.pre(source))
     }
 
     func testPythonCorpusParity() throws {

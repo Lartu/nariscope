@@ -31,6 +31,12 @@ class HtmlRenderingTests(unittest.TestCase):
         picture = "   .-------\n .'         '.\n|  @@@  @@@   |\n|     \\/      |\n `-._     _.-'\n     `---'"
         self.assertEqual(render_document(picture), f'<pre tabindex="0">\n{escape(picture)}</pre>')
 
+    def test_ornaments_keep_their_characters_and_spacing(self):
+        banner = "**************************\n**     Hello there!     **\n**     Welcome back     **\n**************************"
+        result = render_document(f"Example\n=======\n\n{banner}\n\n  -----")
+        self.assertEqual(result, f'<h2>Example</h2>\n<pre tabindex="0">\n{banner}</pre>\n'
+                                 '<pre tabindex="0">\n  -----</pre>')
+
     def test_indented_urls_and_dates_are_reading_content(self):
         result = render_document("\thttps://example.org/\n\n* 2026-11-26\tUpdated the archive.")
         self.assertEqual(result, "<p>https://example.org/</p>\n<ul><li>2026-11-26 Updated the archive.</li></ul>")

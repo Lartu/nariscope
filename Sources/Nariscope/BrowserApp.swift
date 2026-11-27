@@ -627,8 +627,7 @@ private enum ReaderPage {
         var info: [String] = []
         func flushInfo() {
             guard !info.isEmpty else { return }
-            content += Renderer.document(info.joined(separator: "\n"), original: original,
-                                         links: true, showRules: false)
+            content += Renderer.document(info.joined(separator: "\n"), original: original, links: true)
             info.removeAll(keepingCapacity: true)
         }
         for entry in entries {

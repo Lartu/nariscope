@@ -40,7 +40,7 @@ ul { padding-inline-start: 1.5em; }
 """
 
 UNDERLINE = re.compile(r"\s*(?:={3,}|-{3,})\s*")
-RULE = re.compile(r"[-_=*~]{4,}")
+ORNAMENT = re.compile(r"[-_=*~]{4,}")
 COLUMN_GAP = re.compile(r"(?<=\S) {3,}(?=\S)")
 ART_MARKS = re.compile(r"[|_\\/@#~=<>^*+]")
 RULER = re.compile(r"[-_=+| ]{8,}")
@@ -147,8 +147,23 @@ def render_document(source):
     headings = {}
     for i, line in enumerate(lines[:-1]):
         if (line.strip() and len(line.strip()) <= 85 and i not in protected
+                and not ORNAMENT.fullmatch(line.strip())
                 and i + 1 not in protected and UNDERLINE.fullmatch(lines[i + 1])):
             headings[i] = i + 2
+    for start, line in enumerate(lines):
+        border = line.strip()
+        if start - 1 in headings or not ORNAMENT.fullmatch(border):
+            continue
+        protected.add(start)
+        edge = border[:2]
+        end = start + 1
+        while end < len(lines):
+            inner = lines[end].strip()
+            if ORNAMENT.fullmatch(inner) or not (inner.startswith(edge) and inner.endswith(edge)):
+                break
+            end += 1
+        if end > start + 1 and end < len(lines) and lines[end].strip() == border:
+            protected.update(range(start, end + 1))
 
     sections = []
     i = 0
@@ -164,14 +179,10 @@ def render_document(source):
             i = end
         elif not lines[i].strip():
             i += 1
-        elif RULE.fullmatch(lines[i].strip()):
-            sections.append("<hr>")
-            i += 1
         else:
             end = i + 1
             while (end < len(lines) and lines[end].strip()
-                   and end not in protected and end not in headings
-                   and not RULE.fullmatch(lines[end].strip())):
+                   and end not in protected and end not in headings):
                 end += 1
             block = render_prose(lines[i:end])
             sections.append(block)

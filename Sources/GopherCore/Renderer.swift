@@ -9,7 +9,7 @@ public enum Renderer {
     private static let timestamp = regex(#"^\s*(?:(?:[A-Z][a-z]{2} )?[A-Z][a-z]{2} +\d{1,2} \d{2}:\d{2}:\d{2}|\d{1,4}[-/]\d{1,2}[-/]\d{1,4}[ T]+\d{2}:\d{2}|\d{2}:\d{2}:\d{2})\b"#)
     private static let ruler = regex(#"^(?:[-_=+| ]{8,}|\|[\d ]{6,})$"#)
     private static let underline = regex(#"^\s*(?:={3,}|-{3,})\s*$"#)
-    private static let rule = regex(#"^[-_=*~]{4,}$"#)
+    private static let ornament = regex(#"^[-_=*~]{4,}$"#)
     private static let wholeSource = regex(#"^\s*(?:<\?xml\b|%rec:\s)"#, [.caseInsensitive])
     private static let sourceBlock = regex(
         #"^[ \t]*<(html|svg|rss)\b[^>]*>[^\n]*\n.*?^[ \t]*</\1>[ \t]*$|^[ \t]*(\x60{3,}|~{3,})[^\n]*\n.*?^[ \t]*\2[ \t]*$"#,
@@ -249,8 +249,7 @@ public enum Renderer {
         return result.joined(separator: "\n")
     }
 
-    public static func document(_ input: String, original: Bool = false, links: Bool = false,
-                                showRules: Bool = true) -> String {
+    public static func document(_ input: String, original: Bool = false, links: Bool = false) -> String {
         let text = input.replacingOccurrences(of: "\r\n", with: "\n").replacingOccurrences(of: "\r", with: "\n")
         if original || has(wholeSource, text) { return pre(text) }
         let rows = text.components(separatedBy: "\n").map(Row.init)
@@ -267,8 +266,24 @@ public enum Renderer {
         }
         let headings = Set(rows.indices.dropLast().filter { i in
             !rows[i].bare.isEmpty && rows[i].bare.count <= 85 && !fixed.contains(i)
-                && !fixed.contains(i + 1) && has(underline, rows[i + 1].line)
+                && !has(ornament, rows[i].bare) && !fixed.contains(i + 1)
+                && has(underline, rows[i + 1].line)
         })
+        // Preserve literal dividers and banner borders. Only actual heading
+        // underlines are consumed, after the existing layout checks above.
+        for start in rows.indices where !headings.contains(start - 1) && has(ornament, rows[start].bare) {
+            fixed.insert(start)
+            let border = rows[start].bare
+            let edge = String(border.prefix(2))
+            var end = start + 1
+            while rows.indices.contains(end), !has(ornament, rows[end].bare),
+                  rows[end].bare.hasPrefix(edge), rows[end].bare.hasSuffix(edge) {
+                end += 1
+            }
+            if end > start + 1, rows.indices.contains(end), rows[end].bare == border {
+                fixed.formUnion(start...end)
+            }
+        }
         var sections: [String] = []
         var i = 0
         while i < rows.count {
@@ -283,13 +298,10 @@ public enum Renderer {
                 i = end
             } else if row.bare.isEmpty {
                 i += 1
-            } else if has(rule, row.bare) {
-                if showRules { sections.append("<hr>") }
-                i += 1
             } else {
                 var end = i + 1
                 while end < rows.count, !rows[end].bare.isEmpty, !fixed.contains(end),
-                      !headings.contains(end), !has(rule, rows[end].bare) { end += 1 }
+                      !headings.contains(end) { end += 1 }
                 sections.append(prose(rows[i..<end], links: links))
                 i = end
             }
