@@ -5,13 +5,17 @@ import UniformTypeIdentifiers
 import WebKit
 
 @main
+@MainActor
 struct GopherBrowserApp: App {
+    @StateObject private var bookmarks = BookmarkStore()
+
     var body: some Scene {
         WindowGroup("Gopher Browser") {
-            BrowserWindow()
+            BrowserWindow(bookmarks: bookmarks)
                 .frame(minWidth: 500, minHeight: 360)
         }
         .defaultSize(width: 960, height: 750)
+        .commands { BrowserCommands(bookmarks: bookmarks) }
 
         Settings { ReaderSettings() }
     }
@@ -84,15 +88,183 @@ private enum ReaderTheme {
     }
 }
 
+private struct BrowserActions {
+    let newTab: () -> Void
+    let closeTab: (() -> Void)?
+    let focusAddress: () -> Void
+    let addBookmark: (() -> Void)?
+    let openBookmark: (Bookmark) -> Void
+}
+
+private struct BrowserActionsKey: FocusedValueKey {
+    typealias Value = BrowserActions
+}
+
+private extension FocusedValues {
+    var browserActions: BrowserActions? {
+        get { self[BrowserActionsKey.self] }
+        set { self[BrowserActionsKey.self] = newValue }
+    }
+}
+
+private struct BrowserCommands: Commands {
+    @ObservedObject var bookmarks: BookmarkStore
+    @FocusedValue(\.browserActions) private var actions
+
+    var body: some Commands {
+        CommandGroup(after: .newItem) {
+            Button("New Tab") { actions?.newTab() }
+                .keyboardShortcut("t", modifiers: .command)
+                .disabled(actions == nil)
+            Button("Close Tab") { actions?.closeTab?() }
+                .keyboardShortcut("w", modifiers: [.command, .shift])
+                .disabled(actions?.closeTab == nil)
+        }
+        CommandGroup(after: .toolbar) {
+            Button("Focus Address") { actions?.focusAddress() }
+                .keyboardShortcut("l", modifiers: .command)
+                .disabled(actions == nil)
+        }
+        CommandMenu("Bookmarks") {
+            Button("Add Bookmark") { actions?.addBookmark?() }
+                .keyboardShortcut("d", modifiers: .command)
+                .disabled(actions?.addBookmark == nil)
+            Divider()
+            if bookmarks.entries.isEmpty {
+                Text("No Bookmarks")
+            } else {
+                ForEach(bookmarks.entries) { bookmark in
+                    Button(bookmark.title) { actions?.openBookmark(bookmark) }
+                        .disabled(actions == nil)
+                }
+                Divider()
+                Menu("Remove Bookmark") {
+                    ForEach(bookmarks.entries) { bookmark in
+                        Button(bookmark.title) { bookmarks.remove(bookmark) }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@MainActor
 private struct BrowserWindow: View {
-    @StateObject private var browser = Browser()
+    @ObservedObject var bookmarks: BookmarkStore
+    @State private var tabs = [Browser()]
+    @State private var selectedIndex = 0
     @AppStorage(ReaderTheme.stylesheetKey) private var stylesheet: String?
     @AppStorage(ReaderTheme.legacyKey) private var legacyCSS = ""
     @FocusState private var addressFocused: Bool
-    @State private var search = ""
+
+    private var active: Browser { tabs[selectedIndex] }
 
     var body: some View {
         VStack(spacing: 0) {
+            BrowserToolbar(browser: active, bookmarks: bookmarks, addressFocused: $addressFocused,
+                           newTab: newTab, closeTab: tabs.count > 1 ? { closeTab(active.id) } : nil)
+            Divider()
+            HStack(spacing: 8) {
+                ScrollViewReader { scroll in
+                    ScrollView(.horizontal) {
+                        HStack(spacing: 4) {
+                            ForEach(Array(tabs.enumerated()), id: \.element.id) { index, tab in
+                                TabButton(browser: tab, isSelected: index == selectedIndex,
+                                          select: { select(index) },
+                                          close: tabs.count > 1 ? { closeTab(tab.id) } : nil)
+                                    .id(tab.id)
+                            }
+                        }
+                    }
+                    .scrollIndicators(.hidden)
+                    .onChange(of: active.id) { id in scroll.scrollTo(id, anchor: .center) }
+                }
+                Button(action: newTab) { Image(systemName: "plus") }
+                    .accessibilityLabel("New tab").help("New tab (⌘T)")
+                BrowserPageActions(browser: active)
+            }
+            .buttonStyle(.borderless)
+            .padding(.horizontal, 12).padding(.vertical, 5)
+            Divider()
+            BrowserSearch(browser: active)
+            ZStack {
+                ForEach(tabs) { tab in
+                    let selected = tab.id == active.id
+                    BrowserContent(browser: tab, css: ReaderTheme.resolve(stylesheet, legacy: legacyCSS))
+                        .opacity(selected ? 1 : 0)
+                        .allowsHitTesting(selected)
+                        .accessibilityHidden(!selected)
+                        .zIndex(selected ? 1 : 0)
+                }
+            }
+        }
+        .task { tabs.first?.start() }
+    }
+
+    private func newTab() {
+        tabs.append(Browser())
+        selectedIndex = tabs.count - 1
+        addressFocused = true
+    }
+
+    private func select(_ index: Int) {
+        guard index != selectedIndex else { return }
+        addressFocused = false
+        selectedIndex = index
+    }
+
+    private func closeTab(_ id: UUID) {
+        guard tabs.count > 1, let index = tabs.firstIndex(where: { $0.id == id }) else { return }
+        if index == selectedIndex { addressFocused = false }
+        if index < selectedIndex || selectedIndex == tabs.count - 1 && index == selectedIndex {
+            selectedIndex -= 1
+        }
+        tabs[index].stop()
+        tabs.remove(at: index)
+    }
+}
+
+private struct TabButton: View {
+    @ObservedObject var browser: Browser
+    let isSelected: Bool
+    let select: () -> Void
+    let close: (() -> Void)?
+
+    var body: some View {
+        HStack(spacing: 3) {
+            Button(action: select) {
+                Text(browser.displayTitle)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .frame(width: 132, alignment: .leading)
+                    .padding(.vertical, 4)
+                    .contentShape(Rectangle())
+            }
+            .accessibilityAddTraits(isSelected ? .isSelected : [])
+            .help(browser.current?.string ?? "New Tab")
+            if let close {
+                Button(action: close) { Image(systemName: "xmark").font(.caption2) }
+                    .accessibilityLabel("Close \(browser.displayTitle) tab")
+                    .help("Close tab")
+            }
+        }
+        .padding(.horizontal, 8)
+        .background(.quaternary.opacity(isSelected ? 1 : 0), in: RoundedRectangle(cornerRadius: 5))
+    }
+}
+
+private struct BrowserToolbar: View {
+    @ObservedObject var browser: Browser
+    @ObservedObject var bookmarks: BookmarkStore
+    @FocusState.Binding var addressFocused: Bool
+    let newTab: () -> Void
+    let closeTab: (() -> Void)?
+
+    var body: some View {
+        let current = browser.current
+        let saved = current.map { bookmarks.contains($0) } ?? false
+        let starLabel = saved ? "Remove bookmark" : "Add bookmark"
+        HStack(spacing: 8) {
             HStack(spacing: 12) {
                 Button(action: browser.back) { Image(systemName: "chevron.left") }
                     .disabled(!browser.canGoBack).help("Back")
@@ -106,51 +278,89 @@ private struct BrowserWindow: View {
                     .help(browser.loading ? "Stop" : "Reload")
                     .keyboardShortcut("r", modifiers: .command)
                 Button(action: browser.home) { Image(systemName: "house") }.help("Floodgap home")
-
-                TextField("Gopher address", text: $browser.addressField)
-                    .textFieldStyle(.roundedBorder)
-                    .focused($addressFocused)
-                    .onSubmit { browser.submit(); addressFocused = false }
-                Button("Focus address") { addressFocused = true }
-                    .keyboardShortcut("l", modifiers: .command)
-                    .frame(width: 0, height: 0).opacity(0).accessibilityHidden(true)
-
-                if browser.loading { ProgressView().controlSize(.small) }
-                if browser.canToggleOriginal {
-                    Toggle("Original layout", isOn: $browser.original)
-                        .toggleStyle(.button).help("Show or hide the original line breaks")
-                }
-                if browser.downloadAddress != nil {
-                    Button("Save…", action: browser.saveFile)
-                        .disabled(browser.downloading)
-                }
             }
-            .buttonStyle(.borderless)
-            .padding(12)
-
-            if browser.searchAddress != nil {
-                HStack {
-                    TextField("Search this Gopher index", text: $search)
-                        .onSubmit { browser.search(search) }
-                    Button("Search") { browser.search(search) }
-                        .disabled(search.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            TextField("Gopher address", text: $browser.addressField)
+                .textFieldStyle(.roundedBorder)
+                .focused($addressFocused)
+                .onSubmit { browser.submit(); addressFocused = false }
+            Button {
+                if let address = current {
+                    bookmarks.toggle(address, title: browser.displayTitle)
                 }
-                .padding(.horizontal, 12).padding(.bottom, 12)
+            } label: {
+                Image(systemName: saved ? "star.fill" : "star")
+                    .foregroundStyle(saved ? Color.accentColor : Color.secondary)
             }
-            Divider()
-            ReaderView(html: ReaderPage.wrap(browser.content, css: ReaderTheme.resolve(stylesheet, legacy: legacyCSS)),
-                       follow: browser.follow)
+            .disabled(current == nil)
+            .accessibilityLabel(starLabel)
+            .help(starLabel)
         }
-        .task { browser.start() }
+        .buttonStyle(.borderless)
+        .padding(.horizontal, 12).padding(.vertical, 8)
+        .focusedSceneValue(\.browserActions, BrowserActions(
+            newTab: newTab,
+            closeTab: closeTab,
+            focusAddress: { addressFocused = true },
+            addBookmark: saved ? nil : current.map { address in
+                { bookmarks.add(address, title: browser.displayTitle) }
+            },
+            openBookmark: { bookmark in
+                addressFocused = false
+                if let address = try? Address(bookmark.url) { browser.navigate(address) }
+            }
+        ))
+    }
+}
+
+private struct BrowserPageActions: View {
+    @ObservedObject var browser: Browser
+
+    var body: some View {
+        if browser.loading { ProgressView().controlSize(.small) }
+        if browser.canToggleOriginal {
+            Toggle("Original layout", isOn: $browser.original)
+                .toggleStyle(.button).help("Show or hide the original line breaks")
+        }
+        if browser.downloadAddress != nil {
+            Button("Save…", action: browser.saveFile).disabled(browser.downloading)
+        }
+    }
+}
+
+private struct BrowserSearch: View {
+    @ObservedObject var browser: Browser
+
+    var body: some View {
+        if browser.searchAddress != nil {
+            HStack {
+                TextField("Search this Gopher index", text: $browser.searchQuery)
+                    .onSubmit { browser.search(browser.searchQuery) }
+                Button("Search") { browser.search(browser.searchQuery) }
+                    .disabled(browser.searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            }
+            .padding(.horizontal, 12).padding(.vertical, 5)
+            Divider()
+        }
+    }
+}
+
+private struct BrowserContent: View {
+    @ObservedObject var browser: Browser
+    let css: String
+
+    var body: some View {
+        ReaderView(html: ReaderPage.wrap(browser.content, css: css), follow: browser.follow)
     }
 }
 
 @MainActor
-private final class Browser: ObservableObject {
+private final class Browser: ObservableObject, Identifiable {
     private static let homeAddress = Address(host: "gopher.floodgap.com")
-    @Published var addressField = homeAddress.string
+    let id = UUID()
+    @Published var addressField = ""
+    @Published var searchQuery = ""
     @Published var original = false { didSet { if canToggleOriginal { updateReader() } } }
-    @Published private(set) var content = ""
+    @Published private(set) var content = "<h1>New Tab</h1><p>Enter a Gopher address or choose a bookmark.</p>"
     @Published private(set) var loading = false
     @Published private(set) var searchAddress: Address?
     @Published private(set) var downloadAddress: Address?
@@ -165,7 +375,8 @@ private final class Browser: ObservableObject {
 
     var canGoBack: Bool { index > 0 }
     var canGoForward: Bool { index + 1 < history.count }
-    private var current: Address? { history.indices.contains(index) ? history[index] : nil }
+    var current: Address? { history.indices.contains(index) ? history[index] : nil }
+    var displayTitle: String { current.map(ReaderPage.displayTitle) ?? "New Tab" }
 
     deinit { transfer?.cancel() }
 
@@ -254,7 +465,7 @@ private final class Browser: ObservableObject {
         }
     }
 
-    private func navigate(_ address: Address) {
+    func navigate(_ address: Address) {
         if current != address {
             history = Array(history.prefix(index + 1))
             history.append(address)
@@ -385,11 +596,12 @@ private struct ReaderView: NSViewRepresentable {
 }
 
 private enum ReaderPage {
-    static func title(_ address: Address) -> String {
+    static func displayTitle(_ address: Address) -> String {
         let selector = GopherProtocol.decode(address.selector)
-        let name = selector == "/" || selector.isEmpty ? address.host : selector.split(separator: "/").last.map(String.init) ?? selector
-        return Renderer.escape(name)
+        return selector == "/" || selector.isEmpty ? address.host : selector.split(separator: "/").last.map(String.init) ?? selector
     }
+
+    static func title(_ address: Address) -> String { Renderer.escape(displayTitle(address)) }
 
     static func isImage(_ address: Address) -> Bool { [103, 73, 112, 58].contains(address.type) }
 

@@ -5,6 +5,13 @@ or a `gopher://` URL, and the home button opens Floodgap. Menus, text documents,
 type-7 search, common image formats, and file downloads are supported. HTTP
 and HTTPS links open in the default web browser.
 
+Use **⌘T** or the **+** button for a new tab, and **⇧⌘W** to close the
+selected tab when multiple tabs are open. Each tab keeps its own history and
+scroll position. Click the star beside the address field to save or remove a
+bookmark. The macOS **Bookmarks** menu opens saved addresses in the current
+tab, and **⌘D** adds the current page. Bookmarks are shared across windows and
+persist across launches.
+
 The HTML reading view uses the same decisions as the Python corpus renderer.
 It turns hard-wrapped prose into paragraphs and keeps drawings, columns, and
 code in preformatted blocks. **Original layout** shows the source

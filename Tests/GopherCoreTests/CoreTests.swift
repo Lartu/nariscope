@@ -3,6 +3,27 @@ import GopherCore
 import XCTest
 
 final class CoreTests: XCTestCase {
+    @MainActor
+    func testBookmarksPersistAndToggleWithoutDuplicates() throws {
+        let suite = "GopherBookmarksTests.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let address = try Address("gopher://EXAMPLE.org/7/search%09forest%20trail")
+        let sameAddress = try Address("gopher://example.org:70/7/search%09forest%20trail")
+        let distinctSearch = try Address("gopher://example.org/7/search%09another")
+        let store = BookmarkStore(defaults: defaults)
+        store.add(address, title: "Forest trails")
+        store.add(sameAddress, title: "Duplicate")
+        store.add(distinctSearch, title: "Another search")
+
+        let reopened = BookmarkStore(defaults: defaults)
+        XCTAssertEqual(reopened.entries.map(\.title), ["Forest trails", "Another search"])
+        XCTAssertEqual(try Address(XCTUnwrap(reopened.entries.first).url), sameAddress)
+        XCTAssertTrue(reopened.contains(address))
+        reopened.toggle(sameAddress, title: "Forest trails")
+        XCTAssertEqual(BookmarkStore(defaults: defaults).entries.map(\.title), ["Another search"])
+    }
+
     func testAddressRoundTripsLegacySelectorBytesAndSearch() throws {
         let address = try Address("gopher://[::1]:7070/7/index/%E9%2520%09two%20words")
         XCTAssertEqual(address.host, "::1")
