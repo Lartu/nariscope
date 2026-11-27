@@ -20,12 +20,7 @@ h1 {
     font-weight: bold;
     font-size: 30pt;
     margin-bottom: 1em;
-    color: #ff907f;
-}
-
-.loadingtext {
-    line-height: 1.2;
-    overflow-wrap: anywhere;
+    color: #7761e1;
 }
 
 h2 {
@@ -37,7 +32,7 @@ p {
 }
 
 a {
-    color: #f5a1a1;
+    color: #7761e1;
     text-decoration: none;
     font-weight: bold;
     display: block;
@@ -72,4 +67,8 @@ br {
 
 img {
     color: inherit;
+}
+
+.loadingtext {
+    line-height: normal;
 }

@@ -41,6 +41,24 @@ enum ClosedBrowserItem: Codable, Equatable {
 
 @MainActor
 final class BrowsingHistory: ObservableObject {
+    enum ClearRange: String, CaseIterable {
+        case lastHour = "Last Hour"
+        case last24Hours = "Last 24 Hours"
+        case lastWeek = "Last Week"
+        case lastMonth = "Last Month"
+        case all = "All History"
+
+        func cutoff(from now: Date, calendar: Calendar) -> Date? {
+            switch self {
+            case .lastHour: return now.addingTimeInterval(-3_600)
+            case .last24Hours: return now.addingTimeInterval(-86_400)
+            case .lastWeek: return now.addingTimeInterval(-7 * 86_400)
+            case .lastMonth: return calendar.date(byAdding: .month, value: -1, to: now) ?? .distantPast
+            case .all: return nil
+            }
+        }
+    }
+
     struct Visit: Codable, Identifiable {
         let id = UUID()
         let url: String
@@ -127,10 +145,18 @@ final class BrowsingHistory: ObservableObject {
         return session
     }
 
-    func visit(_ address: Address) {
-        guard visits.first?.url != address.string else { return }
-        visits.insert(Visit(url: address.string, date: Date()), at: 0)
+    func visit(_ address: Address, at date: Date = Date()) {
+        visits.insert(Visit(url: address.string, date: date), at: 0)
         if visits.count > 500 { visits.removeLast() }
+        persist()
+    }
+
+    func clearVisits(_ range: ClearRange, now: Date = Date(), calendar: Calendar = .current) {
+        if let cutoff = range.cutoff(from: now, calendar: calendar) {
+            visits.removeAll { $0.date >= cutoff }
+        } else {
+            visits.removeAll()
+        }
         persist()
     }
 

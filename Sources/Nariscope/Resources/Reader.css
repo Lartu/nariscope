@@ -22,11 +22,6 @@ h1 {
     color: tomato;
 }
 
-.loadingtext {
-    line-height: 1.2;
-    overflow-wrap: anywhere;
-}
-
 h2 {
     color: inherit;
 }
@@ -69,6 +64,6 @@ br {
     color: inherit;
 }
 
-img {
-    color: inherit;
+.loadingtext {
+    line-height: normal;
 }

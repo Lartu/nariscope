@@ -6,6 +6,7 @@ private enum AppIcon: String, CaseIterable, Identifiable {
     case violet = "GopherIcon2"
     case blue = "GopherIcon3"
     case space = "GopherIcon4"
+    case clean = "GopherIcon5"
 
     static let storageKey = "appIcon"
     var id: Self { self }
@@ -16,6 +17,7 @@ private enum AppIcon: String, CaseIterable, Identifiable {
         case .violet: return "Violet"
         case .blue: return "Blue"
         case .space: return "Space"
+        case .clean: return "Clean"
         }
     }
 
@@ -79,7 +81,7 @@ struct IconSettings: View {
                                     Text(icon == .sunny ? "Default" : " ")
                                         .font(.caption).foregroundStyle(.secondary)
                                 }
-                                .frame(width: 110)
+                                .frame(width: 100)
                                 .padding(.vertical, 10)
                                 .contentShape(Rectangle())
                             }

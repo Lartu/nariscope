@@ -70,6 +70,40 @@ final class BrowsingHistoryTests: XCTestCase {
         }
     }
 
+    @MainActor
+    func testCleaningHistoryKeepsOlderVisitsAndPersists() throws {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let day: TimeInterval = 86_400
+        let ages: [TimeInterval] = [40 * day, 14 * day, 3 * day, 2 * 3_600, 3_600, 0]
+        let expectations: [(BrowsingHistory.ClearRange, Int)] = [
+            (.lastHour, 4), (.last24Hours, 3), (.lastWeek, 2), (.lastMonth, 1), (.all, 0)
+        ]
+        let address = try Address("hole.example")
+
+        for (range, kept) in expectations {
+            try withDefaults { defaults in
+                let browsing = BrowsingHistory(defaults: defaults)
+                let visitDates = ages.map { now.addingTimeInterval(-$0) }
+                for date in visitDates { browsing.visit(address, at: date) }
+                browsing.clearVisits(range, now: now)
+                let relaunched = BrowsingHistory(defaults: defaults)
+                XCTAssertEqual(relaunched.visits.map(\.date), Array(visitDates.prefix(kept).reversed()), range.rawValue)
+            }
+        }
+    }
+
+    @MainActor
+    func testBookmarkMenuLabelsKeepNonRootSelectors() throws {
+        try withDefaults { defaults in
+            let bookmarks = BookmarkStore(defaults: defaults)
+            bookmarks.add(try Address("lartu.net"), title: "lartunet")
+            bookmarks.add(try Address("lartu.net:7070/0/news"), title: "News")
+            XCTAssertEqual(bookmarks.entries.map(\.menuLabel), [
+                "lartunet – lartu.net", "News – lartu.net:7070/0/news"
+            ])
+        }
+    }
+
     private func withDefaults(_ run: (UserDefaults) throws -> Void) throws {
         let name = "NariscopeTests.\(UUID())"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: name))

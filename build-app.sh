@@ -31,7 +31,7 @@ compile_icon() {
 compile_icon GopherIcon "$staged_app/Contents/Resources" "$stage/icon-metadata.plist"
 /usr/libexec/PlistBuddy -c "Merge \"$stage/icon-metadata.plist\"" "$staged_app/Contents/Info.plist"
 
-for icon in GopherIcon2 GopherIcon3 GopherIcon4; do
+for icon in GopherIcon2 GopherIcon3 GopherIcon4 GopherIcon5; do
     compile_icon "$icon" "$stage/$icon" "$stage/$icon.plist"
     cp "$stage/$icon/$icon.icns" "$staged_app/Contents/Resources/$icon.icns"
 done

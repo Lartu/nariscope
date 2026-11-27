@@ -125,6 +125,9 @@ private struct BrowserCommands: Commands {
                     }
                 }
             }
+            Divider()
+            Button("Clean History…", action: cleanHistory)
+                .disabled(browsing.visits.isEmpty)
         }
         CommandMenu("Bookmarks") {
             Button("Add Bookmark") { actions?.addBookmark?() }
@@ -135,16 +138,33 @@ private struct BrowserCommands: Commands {
                 Text("No Bookmarks")
             } else {
                 ForEach(bookmarks.entries) { bookmark in
-                    Button(bookmark.title) { actions?.openBookmark(bookmark) }
+                    Button(bookmark.menuLabel) { actions?.openBookmark(bookmark) }
                         .disabled(actions == nil)
                 }
                 Divider()
                 Menu("Remove Bookmark") {
                     ForEach(bookmarks.entries) { bookmark in
-                        Button(bookmark.title) { bookmarks.remove(bookmark) }
+                        Button(bookmark.menuLabel) { bookmarks.remove(bookmark) }
                     }
                 }
             }
+        }
+    }
+
+    private func cleanHistory() {
+        let ranges = BrowsingHistory.ClearRange.allCases
+        let picker = NSPopUpButton(frame: NSRect(x: 0, y: 0, width: 240, height: 26), pullsDown: false)
+        picker.addItems(withTitles: ranges.map(\.rawValue))
+        picker.setAccessibilityLabel("Time range")
+
+        let alert = NSAlert()
+        alert.messageText = "Clean History"
+        alert.informativeText = "Choose which visits to remove from your browsing history."
+        alert.accessoryView = picker
+        alert.addButton(withTitle: "Clean History").hasDestructiveAction = true
+        alert.addButton(withTitle: "Cancel")
+        if alert.runModal() == .alertFirstButtonReturn, ranges.indices.contains(picker.indexOfSelectedItem) {
+            browsing.clearVisits(ranges[picker.indexOfSelectedItem])
         }
     }
 
@@ -163,6 +183,18 @@ private struct BrowserCommands: Commands {
 
     private func reopenWindow(_ window: WindowSnapshot) {
         openWindow(id: "browser", value: WindowPage.session(window, UUID()))
+    }
+}
+
+extension Bookmark {
+    var menuLabel: String {
+        let scheme = "gopher://"
+        var displayedURL = url.hasPrefix(scheme) ? String(url.dropFirst(scheme.count)) : url
+        if displayedURL.hasSuffix("/1"), let address = try? Address(url),
+           address.type == 49, address.selector.isEmpty {
+            displayedURL = String(displayedURL.dropLast(2))
+        }
+        return "\(title) – \(displayedURL)"
     }
 }
 

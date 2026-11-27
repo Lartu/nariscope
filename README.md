@@ -14,8 +14,8 @@ Each tab keeps its own history and scroll position.
 New browser windows use the most recently used browser window's size, even
 after restarting Nariscope.
 Click the star beside the address field to save or remove a
-bookmark. The macOS **Bookmarks** menu opens saved addresses in the current
-tab, and **⌘D** adds the current page. Bookmarks are shared across windows and
+bookmark. The macOS **Bookmarks** menu shows titles and addresses and opens
+them in the current tab. **⌘D** adds the current page. Bookmarks are shared across windows and
 persist across launches.
 
 The **History** menu lists recent visits and opens a searchable history with
@@ -23,6 +23,7 @@ The **History** menu lists recent visits and opens a searchable history with
 the last closed window or open the windows from the previous session in
 addition to the current windows. Restored tabs keep their navigation history
 and reload their pages.
+Choose **Clean History…** to remove visits for a selected time range.
 
 The HTML reading view uses the same decisions as the Python corpus renderer.
 It turns hard-wrapped prose into paragraphs and keeps drawings, columns, and
@@ -50,7 +51,7 @@ Use `.loadingtext` to style the heading shown while a page loads.
 External CSS imports and remote fonts are blocked.
 
 In the packaged app, the **App Icon** pane offers **Sunny**, **Violet**,
-**Blue**, and **Space**. The choice takes effect in the Dock and is restored on launch.
+**Blue**, **Space**, and **Clean**. The choice takes effect in the Dock and is restored on launch.
 Finder uses Sunny as the bundled icon.
 
 ## Build and test
