@@ -31,6 +31,8 @@ code in preformatted blocks. The **Original layout** icon beside the bookmark
 star shows the source spacing for text and menu descriptions. Menu links remain
 clickable in either view. The application generates its own HTML and displays
 remote text as text.
+Press **⌘F** to find text on the current page. Use **⌘G** and **⇧⌘G** to move
+between matches.
 
 ## Settings
 

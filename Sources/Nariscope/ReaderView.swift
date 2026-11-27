@@ -1,4 +1,5 @@
 import AppKit
+import GopherCore
 import SwiftUI
 import WebKit
 
@@ -7,7 +8,10 @@ enum LinkDestination: Int {
 }
 
 struct ReaderView: NSViewRepresentable {
-    let html: String
+    let pageContent: String
+    let css: String
+    let find: FindRequest?
+    let found: (FindRequest, Bool) -> Void
     let follow: (URL, LinkDestination) -> Void
 
     private static let handler = "gopherLinks"
@@ -67,10 +71,10 @@ struct ReaderView: NSViewRepresentable {
     }
 
     func updateNSView(_ view: WKWebView, context: Context) {
-        context.coordinator.follow = follow
-        guard context.coordinator.html != html else { return }
-        context.coordinator.html = html
-        view.loadHTMLString(html, baseURL: nil)
+        let coordinator = context.coordinator
+        coordinator.follow = follow
+        coordinator.found = found
+        coordinator.update(view, pageContent: pageContent, css: css, find: find)
     }
 
     static func dismantleNSView(_ view: WKWebView, coordinator: Coordinator) {
@@ -78,9 +82,59 @@ struct ReaderView: NSViewRepresentable {
     }
 
     final class Coordinator: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
-        var html: String?
         var follow: (URL, LinkDestination) -> Void
+        var found: ((FindRequest, Bool) -> Void)?
+        private var pageContent: String?
+        private var css: String?
+        private var navigation: WKNavigation?
+        private var find: FindRequest?
+        private var searchID = UUID()
+
         init(follow: @escaping (URL, LinkDestination) -> Void) { self.follow = follow }
+
+        func update(_ view: WKWebView, pageContent: String, css: String, find: FindRequest?) {
+            let findChanged = self.find != find
+            self.find = find
+            if self.pageContent != pageContent || self.css != css {
+                self.pageContent = pageContent
+                self.css = css
+                searchID = UUID()
+                let html = """
+                    <!doctype html><html lang="en"><meta charset="utf-8">
+                    <meta name="viewport" content="width=device-width, initial-scale=1">
+                    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'">
+                    <style>.loadingtext { line-height: 1.2; overflow-wrap: anywhere; }
+                    \(Renderer.styleElementText(css))</style>
+                    <body>\(pageContent)</body></html>
+                    """
+                navigation = view.loadHTMLString(html, baseURL: nil)
+            } else if findChanged, navigation == nil {
+                search(in: view)
+            }
+        }
+
+        func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+            guard navigation === self.navigation else { return }
+            self.navigation = nil
+            if find != nil { search(in: webView) }
+        }
+
+        private func search(in view: WKWebView) {
+            let id = UUID()
+            searchID = id
+            guard let find else {
+                view.evaluateJavaScript("window.getSelection()?.removeAllRanges()", in: nil, in: .defaultClient)
+                return
+            }
+            let configuration = WKFindConfiguration()
+            configuration.caseSensitive = false
+            configuration.wraps = true
+            configuration.backwards = find.backwards
+            view.find(find.text, configuration: configuration) { [weak self] result in
+                guard let self, self.searchID == id else { return }
+                self.found?(find, result.matchFound)
+            }
+        }
 
         func webView(_ webView: WKWebView, decidePolicyFor action: WKNavigationAction,
                      decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {

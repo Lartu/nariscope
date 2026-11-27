@@ -48,6 +48,8 @@ private struct BrowserActions {
     let home: () -> Void
     let openAddress: (Address) -> Void
     let reopenTab: (TabSnapshot) -> Void
+    let showFind: () -> Void
+    let moveFind: ((Bool) -> Void)?
 }
 
 private struct BrowserActionsKey: FocusedValueKey {
@@ -85,6 +87,19 @@ private struct BrowserCommands: Commands {
             Button("Focus Address") { actions?.focusAddress() }
                 .keyboardShortcut("l", modifiers: .command)
                 .disabled(actions == nil)
+        }
+        CommandGroup(after: .pasteboard) {
+            Menu("Find") {
+                Button("Find on Page…") { actions?.showFind() }
+                    .keyboardShortcut("f", modifiers: .command)
+                    .disabled(actions == nil)
+                Button("Find Next") { actions?.moveFind?(false) }
+                    .keyboardShortcut("g", modifiers: .command)
+                    .disabled(actions?.moveFind == nil)
+                Button("Find Previous") { actions?.moveFind?(true) }
+                    .keyboardShortcut("g", modifiers: [.command, .shift])
+                    .disabled(actions?.moveFind == nil)
+            }
         }
         CommandMenu("History") {
             Button("Show All History") { openWindow(id: "history") }
@@ -207,6 +222,12 @@ private struct BrowserWindow: View {
     @StateObject private var window: BrowserTabs
     private var stylesheets = ReaderStylesheets()
     @FocusState private var addressFocused: Bool
+    @FocusState private var findFocused: Bool
+    @State private var showFindBar = false
+    @State private var find = FindRequest(text: "")
+    @State private var matchFound: Bool?
+
+    private var findRequest: FindRequest? { showFindBar && !find.text.isEmpty ? find : nil }
 
     init(bookmarks: BookmarkStore, browsing: BrowsingHistory, page: WindowPage?) {
         self.bookmarks = bookmarks
@@ -216,14 +237,10 @@ private struct BrowserWindow: View {
     var body: some View {
         let css = stylesheets.css(for: ReaderTheme(colorScheme))
         let active = window.active
+        let activeID: UUID = active.id
         let tabs = window.tabs
         VStack(spacing: 0) {
-            BrowserToolbar(browser: active, bookmarks: bookmarks, addressFocused: $addressFocused,
-                           newTab: newTab, closeTab: { closeTab(active.id) },
-                           hasMultipleTabs: tabs.count > 1, reopenTab: { snapshot in
-                               addressFocused = false
-                               window.reopen(snapshot)
-                           })
+            toolbar(for: active)
             Divider()
             if tabs.count > 1 {
                 ScrollViewReader { scroll in
@@ -237,31 +254,73 @@ private struct BrowserWindow: View {
                         }
                     }
                     .scrollIndicators(.hidden)
-                    .onChange(of: active.id) { id in scroll.scrollTo(id, anchor: .center) }
+                    .onChange(of: activeID) { id in scroll.scrollTo(id, anchor: .center) }
                 }
                 .buttonStyle(.borderless)
                 .padding(.horizontal, 12).padding(.vertical, 5)
                 Divider()
             }
             BrowserSearch(browser: active)
-            ZStack {
-                ForEach(tabs) { tab in
-                    let selected = tab.id == active.id
-                    BrowserContent(browser: tab, css: css) { url, destination in
-                        openLink(url, destination: destination, from: tab)
-                    }
-                        .opacity(selected ? 1 : 0)
-                        .allowsHitTesting(selected)
-                        .accessibilityHidden(!selected)
-                        .zIndex(selected ? 1 : 0)
-                }
-            }
+            if showFindBar { findBar }
+            ZStack { ForEach(tabs) { reader(for: $0, css: css, activeID: activeID) } }
         }
         .background {
             BrowserWindowSize(onActivate: window.activate, onClose: window.close)
                 .allowsHitTesting(false)
         }
         .task { window.start() }
+        .onChange(of: activeID) { _ in matchFound = nil }
+    }
+
+    private func toolbar(for active: Browser) -> some View {
+        let stepFind: ((Bool) -> Void)? = findRequest == nil ? nil : { moveFind($0) }
+        return BrowserToolbar(browser: active, bookmarks: bookmarks, addressFocused: $addressFocused,
+                              newTab: newTab, closeTab: { closeTab(active.id) },
+                              hasMultipleTabs: window.tabs.count > 1, showFind: openFind,
+                              moveFind: stepFind, reopenTab: { snapshot in
+                                  addressFocused = false
+                                  window.reopen(snapshot)
+                              })
+    }
+
+    private var findBar: some View {
+        let text = Binding(get: { find.text }, set: {
+            find = FindRequest(text: $0)
+            matchFound = nil
+        })
+        return FindBar(text: text, focused: $findFocused, matchFound: matchFound,
+                       move: moveFind, close: closeFind)
+    }
+
+    private func reader(for tab: Browser, css: String, activeID: UUID) -> some View {
+        let id: UUID = tab.id
+        let selected = id == activeID
+        return BrowserContent(browser: tab, css: css, find: selected ? findRequest : nil) { request, found in
+            if window.active.id == id, request == findRequest { matchFound = found }
+        } follow: { url, destination in
+            openLink(url, destination: destination, from: tab)
+        }
+        .opacity(selected ? 1 : 0)
+        .allowsHitTesting(selected)
+        .accessibilityHidden(!selected)
+        .zIndex(selected ? 1 : 0)
+    }
+
+    private func openFind() {
+        addressFocused = false
+        if showFindBar { findFocused = true }
+        else { showFindBar = true }
+    }
+
+    private func closeFind() {
+        showFindBar = false
+        findFocused = false
+        matchFound = nil
+    }
+
+    private func moveFind(_ backwards: Bool) {
+        find.backwards = backwards
+        find.step += 1
     }
 
     private func newTab() {
@@ -433,6 +492,8 @@ private struct BrowserToolbar: View {
     let newTab: () -> Void
     let closeTab: () -> Void
     let hasMultipleTabs: Bool
+    let showFind: () -> Void
+    let moveFind: ((Bool) -> Void)?
     let reopenTab: (TabSnapshot) -> Void
 
     var body: some View {
@@ -514,7 +575,9 @@ private struct BrowserToolbar: View {
                 addressFocused = false
                 browser.navigate(address)
             },
-            reopenTab: reopenTab
+            reopenTab: reopenTab,
+            showFind: showFind,
+            moveFind: moveFind
         )
     }
 }
@@ -539,10 +602,12 @@ private struct BrowserSearch: View {
 private struct BrowserContent: View {
     @ObservedObject var browser: Browser
     let css: String
+    let find: FindRequest?
+    let found: (FindRequest, Bool) -> Void
     let follow: (URL, LinkDestination) -> Void
 
     var body: some View {
-        ReaderView(html: ReaderPage.wrap(browser.content, css: css), follow: follow)
+        ReaderView(pageContent: browser.content, css: css, find: find, found: found, follow: follow)
     }
 }
 
@@ -828,16 +893,5 @@ private enum ReaderPage {
         flushInfo()
         if entries.isEmpty { content += "<p>This menu is empty.</p>" }
         return content
-    }
-
-    static func wrap(_ body: String, css: String) -> String {
-        """
-        <!doctype html><html lang="en"><meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-        <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'">
-        <style>.loadingtext { line-height: 1.2; overflow-wrap: anywhere; }
-        \(Renderer.styleElementText(css))</style>
-        <body>\(body)</body></html>
-        """
     }
 }
