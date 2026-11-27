@@ -27,14 +27,14 @@ remote text as text.
 
 ## Settings
 
-Open **Nariscope → Settings** (⌘,) and choose **Stylesheet** to edit
-the current CSS. On first launch it starts with the built-in theme from
-[Reader.css](Sources/Nariscope/Resources/Reader.css). Edit it in place or
-load a UTF-8 stylesheet to replace it. Click **Apply** to update every open
-reading pane. The setting persists between launches and applies to menus and
-Original Layout. Choose **Restore Defaults** and **Apply** to restore the
-built-in theme. Existing overrides from version 1.1 appear after the defaults
-when you first open the editor.
+Nariscope follows the macOS appearance and switches open pages between its
+[light stylesheet](Sources/Nariscope/Resources/Reader.css) and
+[dark stylesheet](Sources/Nariscope/Resources/ReaderDark.css).
+Open **Nariscope → Settings** (⌘,), choose **Stylesheet**, and select **Light**
+or **Dark** to edit that mode. Edit the CSS in place or load a UTF-8 stylesheet,
+then click **Apply**. Each mode is saved separately and styles both menus and
+Original Layout. **Restore Defaults** followed by **Apply** resets the selected
+mode. Previously saved custom CSS carries over to the Light stylesheet.
 
 External CSS imports and remote fonts are blocked.
 

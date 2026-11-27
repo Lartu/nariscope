@@ -1,7 +1,6 @@
 import AppKit
 import GopherCore
 import SwiftUI
-import UniformTypeIdentifiers
 
 @main
 @MainActor
@@ -34,72 +33,6 @@ struct NariscopeApp: App {
 private struct WindowPage: Codable, Hashable {
     let url: String
     let id: UUID
-}
-
-private struct ReaderSettings: View {
-    @AppStorage(ReaderTheme.stylesheetKey) private var stylesheet: String?
-    @AppStorage(ReaderTheme.legacyKey) private var legacyCSS = ""
-    @State private var draft = ""
-
-    private var currentCSS: String { ReaderTheme.resolve(stylesheet, legacy: legacyCSS) }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Custom CSS").font(.headline)
-            Text("This stylesheet controls the appearance of every Gopher page.")
-                .foregroundStyle(.secondary)
-            TextEditor(text: $draft)
-                .font(.system(.body, design: .monospaced))
-                .disableAutocorrection(true)
-                .border(.quaternary)
-                .accessibilityLabel("Custom CSS")
-            HStack {
-                Button("Load CSS File…", action: loadFile)
-                Button("Restore Defaults") { draft = ReaderTheme.defaultCSS }
-                    .disabled(draft == ReaderTheme.defaultCSS)
-                Spacer()
-                Button("Apply") {
-                    stylesheet = draft == ReaderTheme.defaultCSS ? nil : draft
-                    legacyCSS = ""
-                }
-                    .keyboardShortcut(.defaultAction)
-                    .disabled(draft == currentCSS)
-            }
-        }
-        .padding(20)
-        .onAppear { draft = currentCSS }
-    }
-
-    private func loadFile() {
-        let panel = NSOpenPanel()
-        panel.allowedContentTypes = [UTType(filenameExtension: "css") ?? .plainText]
-        panel.canChooseDirectories = false
-        panel.begin { response in
-            guard response == .OK, let url = panel.url else { return }
-            do { draft = try String(contentsOf: url, encoding: .utf8) }
-            catch { NSAlert(error: error).runModal() }
-        }
-    }
-}
-
-private enum ReaderTheme {
-    static let stylesheetKey = "readerStylesheet"
-    static let legacyKey = "customReaderCSS"
-    static let defaultCSS: String = {
-        let bundle = Bundle.main.bundleURL.pathExtension == "app" ? Bundle.main : Bundle.module
-        guard let url = bundle.url(forResource: "Reader", withExtension: "css"),
-              let css = try? String(contentsOf: url, encoding: .utf8) else {
-            assertionFailure("Reader.css is missing from the application resources.")
-            return ""
-        }
-        return css
-    }()
-
-    static func resolve(_ stylesheet: String?, legacy: String) -> String {
-        if let stylesheet { return stylesheet }
-        if legacy.isEmpty { return defaultCSS }
-        return defaultCSS + "\n/* Custom rules from the previous version */\n" + legacy
-    }
 }
 
 private struct BrowserActions {
@@ -174,15 +107,16 @@ private struct BrowserWindow: View {
     let initialAddress: Address?
     @Environment(\.openWindow) private var openWindow
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.colorScheme) private var colorScheme
     @State private var tabs = [Browser()]
     @State private var selectedIndex = 0
-    @AppStorage(ReaderTheme.stylesheetKey) private var stylesheet: String?
-    @AppStorage(ReaderTheme.legacyKey) private var legacyCSS = ""
+    private var stylesheets = ReaderStylesheets()
     @FocusState private var addressFocused: Bool
 
     private var active: Browser { tabs[selectedIndex] }
 
     var body: some View {
+        let css = stylesheets.css(for: ReaderTheme(colorScheme))
         VStack(spacing: 0) {
             BrowserToolbar(browser: active, bookmarks: bookmarks, addressFocused: $addressFocused,
                            newTab: newTab, closeTab: { closeTab(active.id) },
@@ -210,7 +144,7 @@ private struct BrowserWindow: View {
             ZStack {
                 ForEach(tabs) { tab in
                     let selected = tab.id == active.id
-                    BrowserContent(browser: tab, css: ReaderTheme.resolve(stylesheet, legacy: legacyCSS)) { url, destination in
+                    BrowserContent(browser: tab, css: css) { url, destination in
                         openLink(url, destination: destination, from: tab)
                     }
                         .opacity(selected ? 1 : 0)
