@@ -588,9 +588,9 @@ private struct BrowserSearch: View {
     var body: some View {
         if browser.searchAddress != nil {
             HStack {
-                TextField("Search this Gopher index", text: $browser.searchQuery)
+                TextField("Enter query here...", text: $browser.searchQuery)
                     .onSubmit { browser.search(browser.searchQuery) }
-                Button("Search") { browser.search(browser.searchQuery) }
+                Button("Send Query") { browser.search(browser.searchQuery) }
                     .disabled(browser.searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
             .padding(.horizontal, 12).padding(.vertical, 5)
