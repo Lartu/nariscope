@@ -5,6 +5,7 @@ private enum AppIcon: String, CaseIterable, Identifiable {
     case sunny = "GopherIcon"
     case violet = "GopherIcon2"
     case blue = "GopherIcon3"
+    case space = "GopherIcon4"
 
     static let storageKey = "appIcon"
     var id: Self { self }
@@ -14,6 +15,7 @@ private enum AppIcon: String, CaseIterable, Identifiable {
         case .sunny: return "Sunny"
         case .violet: return "Violet"
         case .blue: return "Blue"
+        case .space: return "Space"
         }
     }
 

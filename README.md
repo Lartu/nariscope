@@ -38,8 +38,8 @@ mode. Previously saved custom CSS carries over to the Light stylesheet.
 
 External CSS imports and remote fonts are blocked.
 
-In the packaged app, the **App Icon** pane offers **Sunny**, **Violet**, and
-**Blue**. The choice takes effect in the Dock and is restored on launch.
+In the packaged app, the **App Icon** pane offers **Sunny**, **Violet**,
+**Blue**, and **Space**. The choice takes effect in the Dock and is restored on launch.
 Finder uses Sunny as the bundled icon.
 
 ## Build and test
